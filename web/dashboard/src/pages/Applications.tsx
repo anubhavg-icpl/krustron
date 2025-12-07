@@ -194,9 +194,14 @@ function ApplicationCard({ app }: { app: Application }) {
 
 // Applications List
 function ApplicationsList() {
+  const navigate = useNavigate()
   const { applications, loading } = useApplicationsStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string[]>([])
+
+  const handleNewApplication = () => {
+    navigate('/applications/new')
+  }
 
   // Filter applications
   const filteredApps = applications.filter(app => {
@@ -221,7 +226,7 @@ function ApplicationsList() {
           <h1 className="text-2xl font-bold text-white">Applications</h1>
           <p className="text-gray-400 mt-1">GitOps application deployments</p>
         </div>
-        <button className="glass-btn-primary flex items-center gap-2">
+        <button onClick={handleNewApplication} className="glass-btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           New Application
         </button>
@@ -320,7 +325,7 @@ function ApplicationsList() {
               ? 'No applications match your search criteria'
               : 'Get started by creating your first application'}
           </p>
-          <button className="glass-btn-primary">
+          <button onClick={handleNewApplication} className="glass-btn-primary">
             <Plus className="w-4 h-4 mr-2" />
             New Application
           </button>
@@ -346,11 +351,245 @@ function ApplicationDetail() {
   )
 }
 
+// Application Create Page
+function ApplicationCreate() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [namespace, setNamespace] = useState('default')
+  const [repoUrl, setRepoUrl] = useState('')
+  const [path, setPath] = useState('/')
+  const [targetRevision, setTargetRevision] = useState('HEAD')
+  const [cluster, setCluster] = useState('')
+  const [syncPolicy, setSyncPolicy] = useState<'manual' | 'automated'>('manual')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/v1/applications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          name,
+          namespace,
+          source: {
+            repoUrl,
+            path,
+            targetRevision,
+          },
+          destination: {
+            cluster,
+            namespace,
+          },
+          syncPolicy: syncPolicy === 'automated' ? { automated: { prune: true, selfHeal: true } } : {},
+        }),
+      })
+
+      if (response.ok) {
+        navigate('/applications')
+      }
+    } catch (error) {
+      console.error('Failed to create application:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-2xl font-bold text-white">New Application</h1>
+        <p className="text-gray-400 mt-1">Create a GitOps application</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* General Settings */}
+        <div className="glass-card p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-white">General</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Application Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="my-application"
+              className="glass-input"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Namespace
+            </label>
+            <input
+              type="text"
+              value={namespace}
+              onChange={(e) => setNamespace(e.target.value)}
+              placeholder="default"
+              className="glass-input"
+            />
+          </div>
+        </div>
+
+        {/* Source */}
+        <div className="glass-card p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <GitBranch className="w-5 h-5 text-gray-400" />
+            Source
+          </h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Repository URL
+            </label>
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              placeholder="https://github.com/org/repo"
+              className="glass-input"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Path
+              </label>
+              <input
+                type="text"
+                value={path}
+                onChange={(e) => setPath(e.target.value)}
+                placeholder="/"
+                className="glass-input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Target Revision
+              </label>
+              <input
+                type="text"
+                value={targetRevision}
+                onChange={(e) => setTargetRevision(e.target.value)}
+                placeholder="HEAD"
+                className="glass-input"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Destination */}
+        <div className="glass-card p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-white">Destination</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Cluster
+            </label>
+            <input
+              type="text"
+              value={cluster}
+              onChange={(e) => setCluster(e.target.value)}
+              placeholder="https://kubernetes.default.svc"
+              className="glass-input"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Sync Policy */}
+        <div className="glass-card p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-white">Sync Policy</h3>
+
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setSyncPolicy('manual')}
+              className={clsx(
+                'flex-1 p-4 rounded-xl border transition-all text-center',
+                syncPolicy === 'manual'
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-glass-border bg-glass-light hover:border-gray-600'
+              )}
+            >
+              <div className={clsx(
+                'text-sm font-medium',
+                syncPolicy === 'manual' ? 'text-white' : 'text-gray-400'
+              )}>
+                Manual
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Sync manually when needed</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSyncPolicy('automated')}
+              className={clsx(
+                'flex-1 p-4 rounded-xl border transition-all text-center',
+                syncPolicy === 'automated'
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-glass-border bg-glass-light hover:border-gray-600'
+              )}
+            >
+              <div className={clsx(
+                'text-sm font-medium',
+                syncPolicy === 'automated' ? 'text-white' : 'text-gray-400'
+              )}>
+                Automated
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Auto-sync with prune & self-heal</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => navigate('/applications')}
+            className="glass-btn flex-1"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || !name || !repoUrl || !cluster}
+            className="glass-btn-primary flex-1 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Create Application
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // Main Applications Page with Routes
 export default function Applications() {
   return (
     <Routes>
       <Route index element={<ApplicationsList />} />
+      <Route path="new" element={<ApplicationCreate />} />
       <Route path=":id/*" element={<ApplicationDetail />} />
     </Routes>
   )
