@@ -1,0 +1,421 @@
+// Krustron Dashboard - Settings Page
+// Author: Anubhav Gain <anubhavg@infopercept.com>
+
+import { useState } from 'react'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Key,
+  Users,
+  Webhook,
+  Database,
+  Server,
+  Save,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
+import { clsx } from 'clsx'
+import { useAuthStore, useUIStore } from '@/store/useStore'
+
+// Settings Navigation
+const settingsNav = [
+  { path: '/settings', icon: User, label: 'Profile', exact: true },
+  { path: '/settings/notifications', icon: Bell, label: 'Notifications' },
+  { path: '/settings/security', icon: Shield, label: 'Security' },
+  { path: '/settings/appearance', icon: Palette, label: 'Appearance' },
+  { path: '/settings/api-keys', icon: Key, label: 'API Keys' },
+  { path: '/settings/teams', icon: Users, label: 'Teams' },
+  { path: '/settings/webhooks', icon: Webhook, label: 'Webhooks' },
+]
+
+// Settings Layout
+function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Sidebar */}
+      <div className="lg:w-64 flex-shrink-0">
+        <nav className="glass-card p-2 space-y-1">
+          {settingsNav.map((item) => {
+            const isActive = item.exact
+              ? location.pathname === item.path
+              : location.pathname.startsWith(item.path)
+
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={clsx(
+                  'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',
+                  isActive
+                    ? 'bg-primary-500/20 text-primary-400'
+                    : 'text-gray-400 hover:bg-glass-light hover:text-white'
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="font-medium">{item.label}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1">{children}</div>
+    </div>
+  )
+}
+
+// Profile Settings
+function ProfileSettings() {
+  const { user, updateUser } = useAuthStore()
+  const [formData, setFormData] = useState({
+    displayName: user?.displayName || '',
+    email: user?.email || '',
+    username: user?.username || '',
+  })
+
+  const handleSave = () => {
+    updateUser(formData)
+  }
+
+  return (
+    <SettingsLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <h2 className="text-xl font-bold text-white mb-6">Profile Settings</h2>
+
+        <div className="space-y-6">
+          {/* Avatar */}
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
+              <User className="w-10 h-10 text-white" />
+            </div>
+            <div>
+              <button className="glass-btn">Change Avatar</button>
+              <p className="text-sm text-gray-400 mt-2">JPG, PNG or GIF. Max 2MB.</p>
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={formData.displayName}
+                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                className="glass-input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                className="glass-input"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="glass-input"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={handleSave} className="glass-btn-primary flex items-center gap-2">
+              <Save className="w-4 h-4" />
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </SettingsLayout>
+  )
+}
+
+// Appearance Settings
+function AppearanceSettings() {
+  const { theme, setTheme, sidebarCollapsed, setSidebarCollapsed } = useUIStore()
+
+  return (
+    <SettingsLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <h2 className="text-xl font-bold text-white mb-6">Appearance</h2>
+
+        <div className="space-y-6">
+          {/* Theme */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-4">Theme</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setTheme('dark')}
+                className={clsx(
+                  'p-4 rounded-xl border-2 transition-all',
+                  theme === 'dark'
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-glass-border hover:border-primary-500/50'
+                )}
+              >
+                <div className="w-full h-20 bg-surface rounded-lg mb-2" />
+                <span className="text-sm text-white">Dark</span>
+              </button>
+              <button
+                onClick={() => setTheme('light')}
+                className={clsx(
+                  'p-4 rounded-xl border-2 transition-all',
+                  theme === 'light'
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-glass-border hover:border-primary-500/50'
+                )}
+              >
+                <div className="w-full h-20 bg-gray-100 rounded-lg mb-2" />
+                <span className="text-sm text-white">Light</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="flex items-center justify-between p-4 bg-glass-light rounded-xl">
+            <div>
+              <h4 className="font-medium text-white">Collapsed Sidebar</h4>
+              <p className="text-sm text-gray-400">Show only icons in the sidebar</p>
+            </div>
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={clsx(
+                'relative w-12 h-6 rounded-full transition-colors',
+                sidebarCollapsed ? 'bg-primary-500' : 'bg-glass-heavy'
+              )}
+            >
+              <span
+                className={clsx(
+                  'absolute top-1 w-4 h-4 rounded-full bg-white transition-all',
+                  sidebarCollapsed ? 'left-7' : 'left-1'
+                )}
+              />
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </SettingsLayout>
+  )
+}
+
+// Security Settings
+function SecuritySettings() {
+  const [showPassword, setShowPassword] = useState(false)
+
+  return (
+    <SettingsLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        {/* Change Password */}
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold text-white mb-6">Change Password</h2>
+
+          <div className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Current Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="glass-input pr-10"
+                />
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                New Password
+              </label>
+              <input type="password" className="glass-input" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Confirm New Password
+              </label>
+              <input type="password" className="glass-input" />
+            </div>
+            <button className="glass-btn-primary">Update Password</button>
+          </div>
+        </div>
+
+        {/* Two-Factor Auth */}
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Two-Factor Authentication</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Add an extra layer of security to your account
+              </p>
+            </div>
+            <button className="glass-btn-primary">Enable 2FA</button>
+          </div>
+        </div>
+
+        {/* Active Sessions */}
+        <div className="glass-card p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Active Sessions</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-glass-light rounded-xl">
+              <div className="flex items-center gap-3">
+                <Server className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-white">Current Session</p>
+                  <p className="text-xs text-gray-400">macOS - Chrome - San Francisco, CA</p>
+                </div>
+              </div>
+              <span className="status-badge status-healthy">Active</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </SettingsLayout>
+  )
+}
+
+// Notifications Settings
+function NotificationSettings() {
+  const [settings, setSettings] = useState({
+    emailAlerts: true,
+    slackNotifications: true,
+    pipelineUpdates: true,
+    securityAlerts: true,
+    costAlerts: false,
+  })
+
+  const toggleSetting = (key: keyof typeof settings) => {
+    setSettings({ ...settings, [key]: !settings[key] })
+  }
+
+  return (
+    <SettingsLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <h2 className="text-xl font-bold text-white mb-6">Notification Preferences</h2>
+
+        <div className="space-y-4">
+          {Object.entries(settings).map(([key, value]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between p-4 bg-glass-light rounded-xl"
+            >
+              <div>
+                <h4 className="font-medium text-white capitalize">
+                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                </h4>
+                <p className="text-sm text-gray-400">
+                  Receive notifications for {key.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                </p>
+              </div>
+              <button
+                onClick={() => toggleSetting(key as keyof typeof settings)}
+                className={clsx(
+                  'relative w-12 h-6 rounded-full transition-colors',
+                  value ? 'bg-primary-500' : 'bg-glass-heavy'
+                )}
+              >
+                <span
+                  className={clsx(
+                    'absolute top-1 w-4 h-4 rounded-full bg-white transition-all',
+                    value ? 'left-7' : 'left-1'
+                  )}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </SettingsLayout>
+  )
+}
+
+// API Keys Settings
+function APIKeysSettings() {
+  return (
+    <SettingsLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">API Keys</h2>
+          <button className="glass-btn-primary flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Generate New Key
+          </button>
+        </div>
+
+        <div className="text-center py-12 text-gray-400">
+          <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>No API keys generated yet</p>
+          <p className="text-sm mt-2">Generate your first API key to get started</p>
+        </div>
+      </motion.div>
+    </SettingsLayout>
+  )
+}
+
+export default function Settings() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <p className="text-gray-400 mt-1">Manage your account and preferences</p>
+      </div>
+
+      <Routes>
+        <Route index element={<ProfileSettings />} />
+        <Route path="notifications" element={<NotificationSettings />} />
+        <Route path="security" element={<SecuritySettings />} />
+        <Route path="appearance" element={<AppearanceSettings />} />
+        <Route path="api-keys" element={<APIKeysSettings />} />
+        <Route path="teams" element={<ProfileSettings />} />
+        <Route path="webhooks" element={<ProfileSettings />} />
+      </Routes>
+    </div>
+  )
+}
