@@ -1,49 +1,53 @@
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#2563eb"/>
-      <stop offset="50%" style="stop-color:#8B5CF6"/>
-      <stop offset="100%" style="stop-color:#f97316"/>
+    <linearGradient id="primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
     </linearGradient>
-    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#2563eb"/>
-      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
     </linearGradient>
-    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f97316"/>
-      <stop offset="100%" style="stop-color:#ea580c"/>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#f97316"/>
     </linearGradient>
     <filter id="glow">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
 
-  <!-- Outer ring -->
-  <circle cx="50" cy="50" r="45" stroke="url(#gradient)" stroke-width="2" fill="none" stroke-dasharray="12 6" opacity="0.6">
-    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="20s" repeatCount="indefinite"/>
-  </circle>
+  <!-- Background -->
+  <circle cx="50" cy="50" r="48" fill="#0A0E27"/>
 
-  <!-- Inner ring -->
-  <circle cx="50" cy="50" r="38" stroke="url(#blueGrad)" stroke-width="2" fill="none" filter="url(#glow)">
-    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+  <!-- Outer ring -->
+  <circle cx="50" cy="50" r="44" stroke="url(#ring)" stroke-width="1.5" fill="none" opacity="0.5">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="30s" repeatCount="indefinite"/>
   </circle>
 
   <!-- Hexagon -->
-  <polygon points="50,20 75,35 75,65 50,80 25,65 25,35" fill="rgba(37, 99, 235, 0.15)" stroke="url(#gradient)" stroke-width="2" stroke-linejoin="round" filter="url(#glow)"/>
+  <polygon
+    points="50,15 78,29 78,59 50,73 22,59 22,29"
+    fill="rgba(37, 99, 235, 0.12)"
+    stroke="url(#ring)"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+    filter="url(#glow)"/>
 
   <!-- K letter -->
-  <g transform="translate(50, 50)" filter="url(#glow)">
-    <line x1="-12" y1="-18" x2="-12" y2="18" stroke="url(#blueGrad)" stroke-width="5" stroke-linecap="round"/>
-    <line x1="-12" y1="0" x2="12" y2="-18" stroke="url(#orangeGrad)" stroke-width="5" stroke-linecap="round"/>
-    <line x1="-12" y1="0" x2="12" y2="18" stroke="url(#orangeGrad)" stroke-width="5" stroke-linecap="round"/>
+  <g transform="translate(50, 44)" filter="url(#glow)">
+    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="url(#primary)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="-10" y1="0" x2="10" y2="-16" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="-10" y1="0" x2="10" y2="16" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
   </g>
 
   <!-- Orbiting node -->
-  <circle r="5" fill="url(#blueGrad)" filter="url(#glow)">
-    <animateMotion dur="6s" repeatCount="indefinite" path="M 50,5 A 45,45 0 1,1 50,95 A 45,45 0 1,1 50,5"/>
+  <circle cx="50" cy="6" r="4" fill="url(#primary)" filter="url(#glow)">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="6s" repeatCount="indefinite"/>
   </circle>
 </svg>
