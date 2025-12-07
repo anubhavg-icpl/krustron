@@ -1,0 +1,161 @@
+# Krustron .gitignore
+# Author: Anubhav Gain <anubhavg@infopercept.com>
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/build/
+/bin/
+/dist/
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+
+# Vendor (if not committing)
+# /vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+.envrc
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+kubeconfig
+kubeconfig.yaml
+.kube/
+
+# Configuration with secrets
+config.local.yaml
+config.production.yaml
+config.*.yaml
+!config.yaml
+
+# Coverage
+coverage/
+*.coverprofile
+coverage.txt
+coverage.html
+coverage.out
+
+# Test
+test-results/
+*.test.log
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Kubernetes
+*.kubeconfig
+
+# Helm
+charts/*/charts/
+*.tgz
+
+# Node (if frontend exists)
+node_modules/
+.npm
+.yarn
+.pnp.*
+
+# Python (if scripts exist)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+
+# Generated files
+*.gen.go
+*_gen.go
+wire_gen.go
+api/docs/
+
+# Debug
+debug
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Terraform (if used)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Air (hot reload)
+.air.toml
+air.toml
+
+# Profiling
+*.prof
+*.pprof
+cpu.out
+mem.out
+
+# Editor backups
+*~
+\#*\#
+.\#*
+
+# Local development
+.local/
+local/
+scratch/
+notes.md
+TODO.md
