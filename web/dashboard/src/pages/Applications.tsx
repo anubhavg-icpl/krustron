@@ -24,6 +24,7 @@ import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { useApplicationsStore } from '@/store/useStore'
 import { Application, WebSocketMessage } from '@/types'
+import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
 
 // Application Card Component
 function ApplicationCard({ app }: { app: Application }) {
@@ -391,10 +392,15 @@ function ApplicationCreate() {
       })
 
       if (response.ok) {
+        showSuccessToast('Application created', `${name} is now syncing`)
         navigate('/applications')
+      } else {
+        const data = await response.json().catch(() => ({}))
+        showErrorToast('Failed to create application', data.message || 'Please try again')
       }
     } catch (error) {
       console.error('Failed to create application:', error)
+      showErrorToast('Failed to create application', 'Network error. Please try again.')
     } finally {
       setIsSubmitting(false)
     }

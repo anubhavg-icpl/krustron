@@ -25,6 +25,7 @@ import {
 import { clsx } from 'clsx'
 import { useAuthStore, useUIStore, useAlertsStore } from '@/store/useStore'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
+import { useNotificationToasts } from '@/hooks/useNotificationToasts'
 import NotificationPanel from './NotificationPanel'
 
 // Navigation items
@@ -46,6 +47,9 @@ export default function Layout() {
   const { isConnected, reconnectCount } = useWebSocketContext()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+
+  // Enable toast notifications for alerts
+  useNotificationToasts()
 
   return (
     <div className="min-h-screen bg-surface flex">

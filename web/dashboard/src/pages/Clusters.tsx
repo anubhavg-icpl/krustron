@@ -25,6 +25,7 @@ import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { useClustersStore } from '@/store/useStore'
 import { Cluster, ClusterMetrics, WebSocketMessage } from '@/types'
+import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
 
 // Cluster Card Component
 function ClusterCard({ cluster }: { cluster: Cluster }) {
@@ -332,10 +333,15 @@ function ClusterCreate() {
       })
 
       if (response.ok) {
+        showSuccessToast('Cluster added successfully', `${name} is now being connected`)
         navigate('/clusters')
+      } else {
+        const data = await response.json().catch(() => ({}))
+        showErrorToast('Failed to add cluster', data.message || 'Please try again')
       }
     } catch (error) {
       console.error('Failed to create cluster:', error)
+      showErrorToast('Failed to add cluster', 'Network error. Please try again.')
     } finally {
       setIsSubmitting(false)
     }

@@ -24,6 +24,7 @@ import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { usePipelinesStore } from '@/store/useStore'
 import { Pipeline, PipelineRun, WebSocketMessage } from '@/types'
+import { showSuccessToast, showErrorToast, showInfoToast } from '@/hooks/useNotificationToasts'
 
 // Stage Status Icon
 function StageStatusIcon({ status }: { status: string }) {
@@ -113,6 +114,7 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
       channel: `pipeline:${pipeline.id}`,
       payload: { pipelineId: pipeline.id },
     })
+    showInfoToast('Pipeline triggered', `${pipeline.name} is starting...`)
   }
 
   return (
@@ -371,10 +373,15 @@ function PipelineCreate() {
       })
 
       if (response.ok) {
+        showSuccessToast('Pipeline created', `${name} is ready to run`)
         navigate('/pipelines')
+      } else {
+        const data = await response.json().catch(() => ({}))
+        showErrorToast('Failed to create pipeline', data.message || 'Please try again')
       }
     } catch (error) {
       console.error('Failed to create pipeline:', error)
+      showErrorToast('Failed to create pipeline', 'Network error. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
