@@ -22,33 +22,72 @@ export function useFetchClusters() {
   const { isAuthenticated } = useAuthStore()
   const { setClusters, setLoading, setError } = useClustersStore()
   const hasFetched = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const fetchClusters = useCallback(async () => {
+  const fetchClusters = useCallback(async (signal?: AbortSignal) => {
     if (!isAuthenticated) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const clusters = await clustersApi.list()
-      setClusters(clusters || [])
+      const clusters = await clustersApi.list({ signal })
+      // Only update state if request wasn't aborted
+      if (!signal?.aborted) {
+        setClusters(clusters || [])
+      }
     } catch (error) {
+      // Ignore abort errors
+      if (error instanceof ApiClientError && error.code === 'ABORTED') {
+        return
+      }
       const message = error instanceof ApiClientError ? error.message : 'Failed to fetch clusters'
-      setError(message)
-      showErrorToast('Failed to load clusters', message)
+      if (!signal?.aborted) {
+        setError(message)
+        showErrorToast('Failed to load clusters', message)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated, setClusters, setLoading, setError])
 
   useEffect(() => {
     if (isAuthenticated && !hasFetched.current) {
       hasFetched.current = true
-      fetchClusters()
+      // Create new AbortController for this fetch
+      abortControllerRef.current = new AbortController()
+      fetchClusters(abortControllerRef.current.signal)
+    }
+
+    // Cleanup: abort pending request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
   }, [isAuthenticated, fetchClusters])
 
-  return { refetch: fetchClusters }
+  // Reset hasFetched when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasFetched.current = false
+    }
+  }, [isAuthenticated])
+
+  const refetch = useCallback(() => {
+    // Abort any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    // Create new AbortController
+    abortControllerRef.current = new AbortController()
+    return fetchClusters(abortControllerRef.current.signal)
+  }, [fetchClusters])
+
+  return { refetch }
 }
 
 // ============================================================================
@@ -59,33 +98,65 @@ export function useFetchApplications() {
   const { isAuthenticated } = useAuthStore()
   const { setApplications, setLoading, setError } = useApplicationsStore()
   const hasFetched = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const fetchApplications = useCallback(async () => {
+  const fetchApplications = useCallback(async (signal?: AbortSignal) => {
     if (!isAuthenticated) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const applications = await applicationsApi.list()
-      setApplications(applications || [])
+      const applications = await applicationsApi.list({ signal })
+      if (!signal?.aborted) {
+        setApplications(applications || [])
+      }
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'ABORTED') {
+        return
+      }
       const message = error instanceof ApiClientError ? error.message : 'Failed to fetch applications'
-      setError(message)
-      showErrorToast('Failed to load applications', message)
+      if (!signal?.aborted) {
+        setError(message)
+        showErrorToast('Failed to load applications', message)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated, setApplications, setLoading, setError])
 
   useEffect(() => {
     if (isAuthenticated && !hasFetched.current) {
       hasFetched.current = true
-      fetchApplications()
+      abortControllerRef.current = new AbortController()
+      fetchApplications(abortControllerRef.current.signal)
+    }
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
   }, [isAuthenticated, fetchApplications])
 
-  return { refetch: fetchApplications }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasFetched.current = false
+    }
+  }, [isAuthenticated])
+
+  const refetch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+    return fetchApplications(abortControllerRef.current.signal)
+  }, [fetchApplications])
+
+  return { refetch }
 }
 
 // ============================================================================
@@ -96,33 +167,65 @@ export function useFetchPipelines() {
   const { isAuthenticated } = useAuthStore()
   const { setPipelines, setLoading, setError } = usePipelinesStore()
   const hasFetched = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const fetchPipelines = useCallback(async () => {
+  const fetchPipelines = useCallback(async (signal?: AbortSignal) => {
     if (!isAuthenticated) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const pipelines = await pipelinesApi.list()
-      setPipelines(pipelines || [])
+      const pipelines = await pipelinesApi.list({ signal })
+      if (!signal?.aborted) {
+        setPipelines(pipelines || [])
+      }
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'ABORTED') {
+        return
+      }
       const message = error instanceof ApiClientError ? error.message : 'Failed to fetch pipelines'
-      setError(message)
-      showErrorToast('Failed to load pipelines', message)
+      if (!signal?.aborted) {
+        setError(message)
+        showErrorToast('Failed to load pipelines', message)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated, setPipelines, setLoading, setError])
 
   useEffect(() => {
     if (isAuthenticated && !hasFetched.current) {
       hasFetched.current = true
-      fetchPipelines()
+      abortControllerRef.current = new AbortController()
+      fetchPipelines(abortControllerRef.current.signal)
+    }
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
   }, [isAuthenticated, fetchPipelines])
 
-  return { refetch: fetchPipelines }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasFetched.current = false
+    }
+  }, [isAuthenticated])
+
+  const refetch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+    return fetchPipelines(abortControllerRef.current.signal)
+  }, [fetchPipelines])
+
+  return { refetch }
 }
 
 // ============================================================================
@@ -133,33 +236,65 @@ export function useFetchAlerts() {
   const { isAuthenticated } = useAuthStore()
   const { setAlerts, setLoading, setError } = useAlertsStore()
   const hasFetched = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAlerts = useCallback(async (signal?: AbortSignal) => {
     if (!isAuthenticated) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const alerts = await alertsApi.list()
-      setAlerts(alerts || [])
+      const alerts = await alertsApi.list({ signal })
+      if (!signal?.aborted) {
+        setAlerts(alerts || [])
+      }
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'ABORTED') {
+        return
+      }
       const message = error instanceof ApiClientError ? error.message : 'Failed to fetch alerts'
-      setError(message)
-      // Don't show toast for alerts - not critical
+      if (!signal?.aborted) {
+        setError(message)
+        // Don't show toast for alerts - not critical
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated, setAlerts, setLoading, setError])
 
   useEffect(() => {
     if (isAuthenticated && !hasFetched.current) {
       hasFetched.current = true
-      fetchAlerts()
+      abortControllerRef.current = new AbortController()
+      fetchAlerts(abortControllerRef.current.signal)
+    }
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
   }, [isAuthenticated, fetchAlerts])
 
-  return { refetch: fetchAlerts }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasFetched.current = false
+    }
+  }, [isAuthenticated])
+
+  const refetch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+    return fetchAlerts(abortControllerRef.current.signal)
+  }, [fetchAlerts])
+
+  return { refetch }
 }
 
 // ============================================================================

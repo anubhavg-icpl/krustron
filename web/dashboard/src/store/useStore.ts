@@ -17,6 +17,11 @@ import {
   PaginationState,
 } from '@/types'
 
+// Forward declaration for internal clear function (defined after all stores)
+let clearAllStoresInternal: () => void = () => {
+  console.warn('[Store] clearAllStoresInternal called before initialization')
+}
+
 // ============================================================================
 // Auth Store
 // ============================================================================
@@ -56,6 +61,11 @@ export const useAuthStore = create<AuthStore>()(
             user: null,
             expiresAt: null,
           })
+          // Clear all other stores to prevent data leakage between sessions
+          // We use setTimeout to ensure this runs after the auth state is updated
+          setTimeout(() => {
+            clearAllStoresInternal()
+          }, 0)
         },
 
         updateUser: (userData) => {
@@ -490,6 +500,81 @@ export const useUIStore = create<UIStore>()(
     }
   )
 )
+
+// ============================================================================
+// Clear All Stores (for logout)
+// ============================================================================
+
+function clearStoresImpl(): void {
+  // Clear clusters store
+  useClustersStore.setState({
+    clusters: [],
+    selectedCluster: null,
+    loading: false,
+    error: null,
+    filter: {},
+    sort: { field: 'name', direction: 'asc' },
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+  })
+
+  // Clear applications store
+  useApplicationsStore.setState({
+    applications: [],
+    selectedApp: null,
+    loading: false,
+    error: null,
+    filter: {},
+    sort: { field: 'name', direction: 'asc' },
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+  })
+
+  // Clear pipelines store
+  usePipelinesStore.setState({
+    pipelines: [],
+    selectedPipeline: null,
+    loading: false,
+    error: null,
+    filter: {},
+    sort: { field: 'name', direction: 'asc' },
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+  })
+
+  // Clear alerts store
+  useAlertsStore.setState({
+    alerts: [],
+    unreadCount: 0,
+    loading: false,
+    error: null,
+    filter: {},
+  })
+
+  // Clear cost store
+  useCostStore.setState({
+    summary: null,
+    loading: false,
+    error: null,
+    dateRange: {
+      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      end: new Date().toISOString(),
+    },
+  })
+
+  // Clear UI store transient state (keep persisted preferences)
+  useUIStore.setState({
+    commandPaletteOpen: false,
+    notificationPanelOpen: false,
+    currentModal: null,
+    modalData: null,
+  })
+
+  console.log('[Store] All stores cleared')
+}
+
+// Initialize the internal function reference
+clearAllStoresInternal = clearStoresImpl
+
+// Export the public function
+export const clearAllStores = clearStoresImpl
 
 // ============================================================================
 // Export all stores

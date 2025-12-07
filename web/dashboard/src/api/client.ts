@@ -22,6 +22,7 @@ export interface ApiError {
 export interface RequestConfig extends RequestInit {
   skipAuth?: boolean
   retries?: number
+  signal?: AbortSignal
 }
 
 // ============================================================================
@@ -30,22 +31,78 @@ export interface RequestConfig extends RequestInit {
 
 const API_BASE_URL = '/api/v1'
 const MAX_RETRIES = 3
-const RETRY_DELAY = 1000
+const INITIAL_RETRY_DELAY = 1000
+const MAX_RETRY_DELAY = 30000
 
 // ============================================================================
-// Token Management
+// Circuit Breaker
 // ============================================================================
 
-let isRefreshing = false
-let refreshSubscribers: ((token: string) => void)[] = []
-
-const subscribeTokenRefresh = (callback: (token: string) => void) => {
-  refreshSubscribers.push(callback)
+interface CircuitBreakerState {
+  failures: number
+  lastFailure: number
+  isOpen: boolean
 }
 
-const onTokenRefreshed = (token: string) => {
-  refreshSubscribers.forEach((callback) => callback(token))
-  refreshSubscribers = []
+const circuitBreaker: CircuitBreakerState = {
+  failures: 0,
+  lastFailure: 0,
+  isOpen: false,
+}
+
+const CIRCUIT_BREAKER_THRESHOLD = 5
+const CIRCUIT_BREAKER_RESET_TIMEOUT = 60000 // 1 minute
+
+function checkCircuitBreaker(): boolean {
+  if (!circuitBreaker.isOpen) return true
+
+  // Check if enough time has passed to try again
+  if (Date.now() - circuitBreaker.lastFailure > CIRCUIT_BREAKER_RESET_TIMEOUT) {
+    circuitBreaker.isOpen = false
+    circuitBreaker.failures = 0
+    return true
+  }
+
+  return false
+}
+
+function recordFailure(): void {
+  circuitBreaker.failures++
+  circuitBreaker.lastFailure = Date.now()
+
+  if (circuitBreaker.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+    circuitBreaker.isOpen = true
+    console.warn('[API] Circuit breaker opened - too many failures')
+  }
+}
+
+function recordSuccess(): void {
+  circuitBreaker.failures = 0
+  circuitBreaker.isOpen = false
+}
+
+// ============================================================================
+// Token Management with Proper Mutex
+// ============================================================================
+
+let refreshPromise: Promise<string | null> | null = null
+
+async function getValidToken(): Promise<string | null> {
+  const { token, expiresAt } = useAuthStore.getState()
+
+  // Token doesn't need refresh
+  if (token && expiresAt && Date.now() < expiresAt - 60000) {
+    return token
+  }
+
+  // Token needs refresh - use mutex pattern
+  if (!refreshPromise) {
+    refreshPromise = refreshToken().finally(() => {
+      refreshPromise = null
+    })
+  }
+
+  return refreshPromise
 }
 
 async function refreshToken(): Promise<string | null> {
@@ -90,35 +147,14 @@ async function requestInterceptor(
   url: string,
   config: RequestConfig
 ): Promise<{ url: string; config: RequestConfig }> {
-  const { token, expiresAt } = useAuthStore.getState()
-
   // Skip auth for public endpoints
   if (config.skipAuth) {
     return { url, config }
   }
 
-  // Check if token needs refresh (refresh 60 seconds before expiry)
-  if (token && expiresAt && Date.now() > expiresAt - 60000) {
-    if (!isRefreshing) {
-      isRefreshing = true
-      const newToken = await refreshToken()
-      isRefreshing = false
+  // Get valid token (handles refresh with proper mutex)
+  const currentToken = await getValidToken()
 
-      if (newToken) {
-        onTokenRefreshed(newToken)
-      }
-    }
-
-    // Wait for token refresh if already in progress
-    if (isRefreshing) {
-      await new Promise<string>((resolve) => {
-        subscribeTokenRefresh(resolve)
-      })
-    }
-  }
-
-  // Add auth header
-  const currentToken = useAuthStore.getState().token
   if (currentToken) {
     config.headers = {
       ...config.headers,
@@ -199,6 +235,17 @@ export class ApiClientError extends Error {
 }
 
 // ============================================================================
+// Exponential Backoff Calculator
+// ============================================================================
+
+function calculateBackoff(attempt: number): number {
+  // Exponential backoff with jitter: min(maxDelay, baseDelay * 2^attempt) + random jitter
+  const exponentialDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
+  const jitter = Math.random() * 1000
+  return Math.min(MAX_RETRY_DELAY, exponentialDelay + jitter)
+}
+
+// ============================================================================
 // Main Request Function
 // ============================================================================
 
@@ -206,6 +253,15 @@ async function request<T>(
   endpoint: string,
   config: RequestConfig = {}
 ): Promise<ApiResponse<T>> {
+  // Check circuit breaker before making request
+  if (!checkCircuitBreaker()) {
+    throw new ApiClientError(
+      'Service temporarily unavailable - too many failures',
+      'CIRCUIT_BREAKER_OPEN',
+      503
+    )
+  }
+
   const url = `${API_BASE_URL}${endpoint}`
   const retries = config.retries ?? MAX_RETRIES
 
@@ -222,30 +278,55 @@ async function request<T>(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(intercepted.url, intercepted.config)
-      return await responseInterceptor<ApiResponse<T>>(
+      // Check if request was aborted
+      if (config.signal?.aborted) {
+        throw new ApiClientError('Request aborted', 'ABORTED', 0)
+      }
+
+      const response = await fetch(intercepted.url, {
+        ...intercepted.config,
+        signal: config.signal,
+      })
+
+      const result = await responseInterceptor<ApiResponse<T>>(
         response,
         intercepted.url,
         intercepted.config
       )
+
+      // Record success for circuit breaker
+      recordSuccess()
+      return result
     } catch (error) {
       lastError = error as Error
+
+      // Don't retry on aborted requests
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new ApiClientError('Request aborted', 'ABORTED', 0)
+      }
 
       // Don't retry on auth errors or client errors
       if (error instanceof ApiClientError) {
         if (error.status >= 400 && error.status < 500) {
           throw error
         }
+        // Record failure for server errors
+        if (error.status >= 500) {
+          recordFailure()
+        }
       }
 
-      // Wait before retry
+      // Wait before retry with exponential backoff
       if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY * (attempt + 1)))
-        console.warn(`[API] Retrying request (${attempt + 1}/${retries}):`, endpoint)
+        const backoffDelay = calculateBackoff(attempt)
+        console.warn(`[API] Retrying request in ${backoffDelay}ms (attempt ${attempt + 1}/${retries}):`, endpoint)
+        await new Promise((resolve) => setTimeout(resolve, backoffDelay))
       }
     }
   }
 
+  // All retries exhausted - record failure
+  recordFailure()
   throw lastError
 }
 

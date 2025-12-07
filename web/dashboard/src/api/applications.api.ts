@@ -1,7 +1,7 @@
 // Krustron Dashboard - Applications API
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
-import api from './client'
+import api, { RequestConfig } from './client'
 import { Application, ApplicationResource } from '@/types'
 
 // ============================================================================
@@ -40,13 +40,21 @@ export interface UpdateApplicationRequest {
   }
 }
 
+export interface ListOptions {
+  page?: number
+  limit?: number
+  signal?: AbortSignal
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
 
 export const applicationsApi = {
-  list: async (page = 1, limit = 20) => {
-    const response = await api.get<Application[]>(`/applications?page=${page}&limit=${limit}`)
+  list: async (options: ListOptions = {}) => {
+    const { page = 1, limit = 20, signal } = options
+    const config: RequestConfig = signal ? { signal } : {}
+    const response = await api.get<Application[]>(`/applications?page=${page}&limit=${limit}`, config)
     return response.data
   },
 

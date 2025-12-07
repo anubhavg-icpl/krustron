@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { WebSocketMessage, MessageType } from '@/types'
+import { useAuthStore } from '@/store/useStore'
 
 // ============================================================================
 // Types
@@ -12,18 +13,19 @@ import { WebSocketMessage, MessageType } from '@/types'
 export interface WebSocketOptions {
   url?: string
   reconnect?: boolean
-  reconnectInterval?: number
   reconnectAttempts?: number
   heartbeatInterval?: number
   onOpen?: () => void
   onClose?: () => void
   onError?: (error: Event) => void
   onMessage?: (message: WebSocketMessage) => void
+  onAuthFailure?: () => void
 }
 
 export interface WebSocketState {
   isConnected: boolean
   isConnecting: boolean
+  isAuthenticated: boolean
   lastMessage: WebSocketMessage | null
   error: Event | null
   reconnectCount: number
@@ -41,11 +43,25 @@ export interface UseWebSocketReturn extends WebSocketState {
 // Constants
 // ============================================================================
 
-const DEFAULT_OPTIONS: Required<Omit<WebSocketOptions, 'url' | 'onOpen' | 'onClose' | 'onError' | 'onMessage'>> = {
+const DEFAULT_OPTIONS: Required<Omit<WebSocketOptions, 'url' | 'onOpen' | 'onClose' | 'onError' | 'onMessage' | 'onAuthFailure'>> = {
   reconnect: true,
-  reconnectInterval: 3000,
   reconnectAttempts: 10,
   heartbeatInterval: 30000,
+}
+
+// Exponential backoff constants
+const INITIAL_RECONNECT_DELAY = 1000
+const MAX_RECONNECT_DELAY = 30000
+
+// ============================================================================
+// Exponential Backoff Calculator
+// ============================================================================
+
+function calculateReconnectDelay(attempt: number): number {
+  // Exponential backoff with jitter
+  const exponentialDelay = INITIAL_RECONNECT_DELAY * Math.pow(2, attempt)
+  const jitter = Math.random() * 1000
+  return Math.min(MAX_RECONNECT_DELAY, exponentialDelay + jitter)
 }
 
 // ============================================================================
@@ -56,19 +72,20 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
   const {
     url = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`,
     reconnect = DEFAULT_OPTIONS.reconnect,
-    reconnectInterval = DEFAULT_OPTIONS.reconnectInterval,
     reconnectAttempts = DEFAULT_OPTIONS.reconnectAttempts,
     heartbeatInterval = DEFAULT_OPTIONS.heartbeatInterval,
     onOpen,
     onClose,
     onError,
     onMessage,
+    onAuthFailure,
   } = options
 
   // State
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
     isConnecting: false,
+    isAuthenticated: false,
     lastMessage: null,
     error: null,
     reconnectCount: 0,
@@ -117,6 +134,24 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     }, heartbeatInterval)
   }, [heartbeatInterval, generateId])
 
+  // Send authentication message
+  const sendAuth = useCallback((socket: WebSocket) => {
+    const { token } = useAuthStore.getState()
+    if (!token) {
+      console.error('[WebSocket] No token available for authentication')
+      onAuthFailure?.()
+      return
+    }
+
+    socket.send(JSON.stringify({
+      id: generateId(),
+      type: 'auth',
+      channel: 'system',
+      payload: { token },
+      timestamp: new Date().toISOString(),
+    }))
+  }, [generateId, onAuthFailure])
+
   // Handle incoming messages
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -124,6 +159,20 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
 
       // Update state
       setState(prev => ({ ...prev, lastMessage: message }))
+
+      // Handle authentication response
+      if (message.type === 'auth_success') {
+        console.log('[WebSocket] Authentication successful')
+        setState(prev => ({ ...prev, isAuthenticated: true }))
+        return
+      }
+
+      if (message.type === 'auth_failure' || message.type === 'auth_error') {
+        console.error('[WebSocket] Authentication failed:', message.payload)
+        setState(prev => ({ ...prev, isAuthenticated: false }))
+        onAuthFailure?.()
+        return
+      }
 
       // Handle pong
       if (message.type === 'pong') {
@@ -153,7 +202,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     } catch (error) {
       console.error('[WebSocket] Failed to parse message:', error)
     }
-  }, [onMessage])
+  }, [onMessage, onAuthFailure])
 
   // Connect to WebSocket
   const connect = useCallback(() => {
@@ -161,7 +210,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
       return
     }
 
-    setState(prev => ({ ...prev, isConnecting: true, error: null }))
+    setState(prev => ({ ...prev, isConnecting: true, error: null, isAuthenticated: false }))
 
     try {
       const socket = new WebSocket(url)
@@ -176,38 +225,45 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
           isConnecting: false,
           reconnectCount: 0,
         }))
+
+        // Send authentication immediately after connect
+        sendAuth(socket)
+
         startHeartbeat()
         onOpen?.()
 
-        // Re-subscribe to all channels
-        subscriptionsRef.current.forEach((_, channel) => {
-          if (channel !== '*' && !channel.includes('.')) {
-            socket.send(JSON.stringify({
-              id: generateId(),
-              type: 'subscribe',
-              channel,
-              payload: null,
-              timestamp: new Date().toISOString(),
-            }))
-          }
-        })
+        // Re-subscribe to all channels (after auth message)
+        setTimeout(() => {
+          subscriptionsRef.current.forEach((_, channel) => {
+            if (channel !== '*' && !channel.includes('.')) {
+              socket.send(JSON.stringify({
+                id: generateId(),
+                type: 'subscribe',
+                channel,
+                payload: null,
+                timestamp: new Date().toISOString(),
+              }))
+            }
+          })
+        }, 100)
       }
 
       socket.onclose = (event) => {
         console.log('[WebSocket] Disconnected:', event.code, event.reason)
         clearTimers()
-        setState(prev => ({ ...prev, isConnected: false, isConnecting: false }))
+        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, isAuthenticated: false }))
         onClose?.()
 
-        // Attempt reconnection
+        // Attempt reconnection with exponential backoff
         if (reconnect && reconnectCountRef.current < reconnectAttempts) {
+          const delay = calculateReconnectDelay(reconnectCountRef.current)
           reconnectCountRef.current++
           setState(prev => ({ ...prev, reconnectCount: reconnectCountRef.current }))
-          console.log(`[WebSocket] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectCountRef.current}/${reconnectAttempts})`)
+          console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectCountRef.current}/${reconnectAttempts})`)
 
           reconnectTimeoutRef.current = setTimeout(() => {
             connect()
-          }, reconnectInterval)
+          }, delay)
         }
       }
 
@@ -222,7 +278,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
       console.error('[WebSocket] Failed to connect:', error)
       setState(prev => ({ ...prev, isConnecting: false }))
     }
-  }, [url, reconnect, reconnectInterval, reconnectAttempts, onOpen, onClose, onError, handleMessage, startHeartbeat, clearTimers, generateId])
+  }, [url, reconnect, reconnectAttempts, onOpen, onClose, onError, handleMessage, startHeartbeat, clearTimers, generateId, sendAuth])
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {
@@ -234,6 +290,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     setState({
       isConnected: false,
       isConnecting: false,
+      isAuthenticated: false,
       lastMessage: null,
       error: null,
       reconnectCount: 0,
