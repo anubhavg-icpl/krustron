@@ -1,0 +1,124 @@
+# Krustron Configuration
+# Author: Anubhav Gain <anubhavg@infopercept.com>
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  grpc_port: 50051
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+  mode: "debug" # debug, release, test
+  cors_origins:
+    - "*"
+  tls_enabled: false
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "krustron"
+  password: "" # Set via KRUSTRON_DATABASE_PASSWORD env var
+  database: "krustron"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+  migrations_path: "migrations"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: "" # Set via KRUSTRON_REDIS_PASSWORD env var
+  db: 0
+  pool_size: 10
+  dial_timeout: 5s
+
+nats:
+  url: "nats://localhost:4222"
+  cluster_id: "krustron-cluster"
+  client_id: "krustron-api"
+  max_reconnects: 10
+  reconnect_wait: 2s
+  connect_timeout: 10s
+
+auth:
+  jwt_secret: "" # Set via KRUSTRON_AUTH_JWT_SECRET env var
+  jwt_expiration: 24h
+  refresh_expiration: 168h # 7 days
+  bcrypt_cost: 12
+  oidc_enabled: false
+  oidc_issuer: ""
+  oidc_client_id: ""
+  oidc_client_secret: "" # Set via KRUSTRON_AUTH_OIDC_CLIENT_SECRET env var
+  oidc_redirect_url: "http://localhost:8080/api/v1/auth/oidc/callback"
+  casbin_model_path: "configs/casbin_model.conf"
+  casbin_policy_path: "configs/casbin_policy.csv"
+
+kubernetes:
+  in_cluster: false
+  kubeconfig_path: "" # Defaults to ~/.kube/config
+  default_namespace: "default"
+  watch_resync_period: 30m
+  qps: 50
+  burst: 100
+  agent_image: "ghcr.io/anubhavg-icpl/krustron-agent:latest"
+  agent_namespace: "krustron-system"
+
+gitops:
+  enabled: true
+  provider: "argocd" # argocd, flux
+  sync_interval: 3m
+  prune_enabled: true
+  self_heal_enabled: true
+  argocd:
+    server_url: ""
+    auth_token: "" # Set via KRUSTRON_GITOPS_ARGOCD_AUTH_TOKEN env var
+    insecure: false
+    namespace: "argocd"
+
+observability:
+  metrics:
+    enabled: true
+    path: "/metrics"
+    namespace: "krustron"
+  tracing:
+    enabled: false
+    provider: "otel" # otel, jaeger
+    endpoint: "http://localhost:14268/api/traces"
+    service_name: "krustron"
+    sample_rate: 0.1
+  logging:
+    enabled: false
+    provider: "opensearch" # opensearch, elasticsearch
+    endpoint: "http://localhost:9200"
+    index: "krustron-logs"
+  prometheus:
+    url: "http://localhost:9090"
+  grafana:
+    url: "http://localhost:3000"
+
+security:
+  trivy_enabled: true
+  trivy_server_url: "http://localhost:4954"
+  opa_enabled: true
+  opa_server_url: "http://localhost:8181"
+  wazuh_enabled: false
+  wazuh_server_url: ""
+  wazuh_api_key: "" # Set via KRUSTRON_SECURITY_WAZUH_API_KEY env var
+  scan_interval: 1h
+  block_on_critical: true
+
+ai:
+  enabled: false
+  provider: "ollama" # ollama, openai, anthropic
+  endpoint: "http://localhost:11434"
+  model: "llama3"
+  api_key: "" # Set via KRUSTRON_AI_API_KEY env var
+  max_tokens: 2048
+  temperature: 0.7
+
+logger:
+  level: "info" # debug, info, warn, error
+  format: "json" # json, console
+  output: "stdout" # stdout, stderr, or file path
+  development: false
