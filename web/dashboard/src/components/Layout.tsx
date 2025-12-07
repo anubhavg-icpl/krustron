@@ -25,6 +25,7 @@ import {
 import { clsx } from 'clsx'
 import { useAuthStore, useUIStore, useAlertsStore } from '@/store/useStore'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
+import NotificationPanel from './NotificationPanel'
 
 // Navigation items
 const navItems = [
@@ -312,6 +313,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Notification Panel */}
+      <NotificationPanel />
     </div>
   )
 }

@@ -405,10 +405,10 @@ export default function Dashboard() {
             {alerts.slice(0, 5).map((alert) => (
               <ActivityItem
                 key={alert.id}
-                icon={alert.severity === 'critical' ? XCircle : alert.severity === 'warning' ? AlertCircle : CheckCircle}
-                iconColor={alert.severity === 'critical' ? 'bg-status-error' : alert.severity === 'warning' ? 'bg-status-warning' : 'bg-status-healthy'}
-                title={alert.summary}
-                description={alert.description || ''}
+                icon={alert.severity === 'critical' ? XCircle : alert.severity === 'high' ? AlertCircle : CheckCircle}
+                iconColor={alert.severity === 'critical' ? 'bg-status-error' : alert.severity === 'high' ? 'bg-status-warning' : 'bg-status-healthy'}
+                title={alert.title}
+                description={alert.message || ''}
                 time={new Date(alert.startsAt).toLocaleTimeString()}
               />
             ))}
