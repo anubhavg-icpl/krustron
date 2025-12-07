@@ -438,6 +438,7 @@ function TeamsSettings() {
 
   useEffect(() => {
     fetchTeamData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const fetchTeamData = async () => {
@@ -768,6 +769,7 @@ function WebhooksSettings() {
 
   useEffect(() => {
     fetchWebhooks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const fetchWebhooks = async () => {

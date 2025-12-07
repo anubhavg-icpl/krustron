@@ -34,6 +34,10 @@ export type MessageType =
   | 'pong'
   | 'subscribe'
   | 'unsubscribe'
+  | 'auth'
+  | 'auth_success'
+  | 'auth_failure'
+  | 'auth_error'
 
 export interface WebSocketMessage<T = unknown> {
   id: string
