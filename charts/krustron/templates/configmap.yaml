@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "krustron.fullname" . }}-config
+  labels:
+    {{- include "krustron.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    server:
+      host: "{{ .Values.server.host }}"
+      port: {{ .Values.server.port }}
+      grpc_port: {{ .Values.server.grpcPort }}
+      mode: "{{ .Values.server.mode }}"
+      cors_origins:
+        {{- toYaml .Values.server.corsOrigins | nindent 8 }}
+
+    database:
+      host: "{{ .Values.database.host | default (printf "%s-postgresql" .Release.Name) }}"
+      port: {{ .Values.database.port }}
+      user: "{{ .Values.database.user }}"
+      database: "{{ .Values.database.database }}"
+      ssl_mode: "{{ .Values.database.sslMode }}"
+
+    redis:
+      host: "{{ .Values.redis.host | default (printf "%s-redis-master" .Release.Name) }}"
+      port: {{ .Values.redis.port }}
+      db: {{ .Values.redis.db }}
+
+    auth:
+      jwt_expiration: "{{ .Values.auth.jwtExpiration }}"
+      refresh_expiration: "{{ .Values.auth.refreshExpiration }}"
+      oidc_enabled: {{ .Values.auth.oidc.enabled }}
+      {{- if .Values.auth.oidc.enabled }}
+      oidc_issuer: "{{ .Values.auth.oidc.issuer }}"
+      oidc_client_id: "{{ .Values.auth.oidc.clientId }}"
+      oidc_redirect_url: "{{ .Values.auth.oidc.redirectUrl }}"
+      {{- end }}
+
+    kubernetes:
+      in_cluster: true
+      default_namespace: "default"
+
+    gitops:
+      enabled: {{ .Values.gitops.enabled }}
+      provider: "{{ .Values.gitops.provider }}"
+      {{- if .Values.gitops.argocd.serverUrl }}
+      argocd:
+        server_url: "{{ .Values.gitops.argocd.serverUrl }}"
+        insecure: {{ .Values.gitops.argocd.insecure }}
+        namespace: "{{ .Values.gitops.argocd.namespace }}"
+      {{- end }}
+
+    observability:
+      metrics:
+        enabled: {{ .Values.observability.metrics.enabled }}
+        path: "{{ .Values.observability.metrics.path }}"
+      tracing:
+        enabled: {{ .Values.observability.tracing.enabled }}
+        provider: "{{ .Values.observability.tracing.provider }}"
+        {{- if .Values.observability.tracing.endpoint }}
+        endpoint: "{{ .Values.observability.tracing.endpoint }}"
+        {{- end }}
+      {{- if .Values.observability.prometheus.url }}
+      prometheus:
+        url: "{{ .Values.observability.prometheus.url }}"
+      {{- end }}
+      {{- if .Values.observability.grafana.url }}
+      grafana:
+        url: "{{ .Values.observability.grafana.url }}"
+      {{- end }}
+
+    security:
+      trivy_enabled: {{ .Values.security.trivyEnabled }}
+      {{- if .Values.security.trivyServerUrl }}
+      trivy_server_url: "{{ .Values.security.trivyServerUrl }}"
+      {{- end }}
+      opa_enabled: {{ .Values.security.opaEnabled }}
+      {{- if .Values.security.opaServerUrl }}
+      opa_server_url: "{{ .Values.security.opaServerUrl }}"
+      {{- end }}
+      block_on_critical: {{ .Values.security.blockOnCritical }}
+
+    ai:
+      enabled: {{ .Values.ai.enabled }}
+      {{- if .Values.ai.enabled }}
+      provider: "{{ .Values.ai.provider }}"
+      endpoint: "{{ .Values.ai.endpoint }}"
+      model: "{{ .Values.ai.model }}"
+      {{- end }}
+
+    logger:
+      level: "{{ .Values.logger.level }}"
+      format: "{{ .Values.logger.format }}"
+      output: "stdout"
