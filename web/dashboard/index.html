@@ -8,29 +8,43 @@
     <meta name="author" content="Anubhav Gain <anubhavg@infopercept.com>" />
     <meta name="theme-color" content="#0A0E27" />
 
-    <!-- Fonts -->
+    <!-- Fonts: Space Grotesk (headings) + DM Sans (body) + JetBrains Mono (code) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <title>Krustron - Kubernetes Platform</title>
 
     <style>
+      /* CSS Variables for theming */
+      :root {
+        --color-primary: #2563eb;
+        --color-accent: #f97316;
+        --color-surface: #0A0E27;
+        --color-surface-50: #1a1f3d;
+      }
+
       /* Initial loading styles */
       html {
-        background-color: #0A0E27;
+        background-color: var(--color-surface);
+        scroll-behavior: smooth;
       }
+
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Fira Sans', system-ui, sans-serif;
-        background-color: #0A0E27;
+        font-family: 'DM Sans', system-ui, sans-serif;
+        background-color: var(--color-surface);
         color: #fff;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
+
       #root {
         min-height: 100vh;
       }
-      /* Loading spinner */
+
+      /* Beautiful loading screen */
       .initial-loader {
         position: fixed;
         top: 0;
@@ -40,28 +54,150 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #0A0E27 0%, #1a1f3d 100%);
+        background: var(--color-surface);
+        overflow: hidden;
       }
+
+      /* Animated background orbs */
+      .initial-loader::before,
+      .initial-loader::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.5;
+        animation: float 8s ease-in-out infinite;
+      }
+
+      .initial-loader::before {
+        width: 400px;
+        height: 400px;
+        background: var(--color-primary);
+        top: -100px;
+        left: -100px;
+        animation-delay: 0s;
+      }
+
+      .initial-loader::after {
+        width: 350px;
+        height: 350px;
+        background: var(--color-accent);
+        bottom: -100px;
+        right: -100px;
+        animation-delay: -4s;
+      }
+
       .loader-content {
         text-align: center;
+        z-index: 10;
+        position: relative;
       }
+
+      /* Glass card effect for loader */
+      .loader-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 48px 64px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+
       .loader-logo {
         width: 80px;
         height: 80px;
         margin-bottom: 24px;
-        animation: pulse 2s ease-in-out infinite;
       }
+
+      /* Animated logo ring */
+      .logo-ring {
+        animation: spin 3s linear infinite;
+        transform-origin: center;
+      }
+
+      .logo-check {
+        animation: drawCheck 1s ease-out forwards;
+        stroke-dasharray: 60;
+        stroke-dashoffset: 60;
+      }
+
       .loader-text {
-        font-size: 1.5rem;
-        font-weight: 600;
-        background: linear-gradient(135deg, #2563eb, #f97316);
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        margin-bottom: 8px;
       }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.7; transform: scale(0.95); }
+
+      .loader-subtitle {
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      /* Loading dots */
+      .loading-dots {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 24px;
+      }
+
+      .loading-dots span {
+        width: 8px;
+        height: 8px;
+        background: var(--color-primary);
+        border-radius: 50%;
+        animation: bounce 1.4s ease-in-out infinite;
+      }
+
+      .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      /* Animations */
+      @keyframes float {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(30px, -30px) scale(1.1); }
+        66% { transform: translate(-20px, 20px) scale(0.9); }
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes drawCheck {
+        to { stroke-dashoffset: 0; }
+      }
+
+      @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
+      }
+
+      /* Reduced motion support */
+      @media (prefers-reduced-motion: reduce) {
+        .initial-loader::before,
+        .initial-loader::after,
+        .logo-ring,
+        .logo-check,
+        .loading-dots span {
+          animation: none;
+        }
+        .logo-check {
+          stroke-dashoffset: 0;
+        }
       }
     </style>
   </head>
@@ -69,17 +205,28 @@
     <div id="root">
       <div class="initial-loader">
         <div class="loader-content">
-          <svg class="loader-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="50" cy="50" r="45" stroke="url(#gradient)" stroke-width="3" fill="none"/>
-            <path d="M30 50 L45 65 L70 35" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#2563eb"/>
-                <stop offset="100%" style="stop-color:#f97316"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="loader-text">Krustron</div>
+          <div class="loader-card">
+            <svg class="loader-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Animated gradient ring -->
+              <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#2563eb"/>
+                  <stop offset="50%" style="stop-color:#8B5CF6"/>
+                  <stop offset="100%" style="stop-color:#f97316"/>
+                </linearGradient>
+              </defs>
+              <circle class="logo-ring" cx="50" cy="50" r="45" stroke="url(#gradient)" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <!-- Check mark -->
+              <path class="logo-check" d="M30 50 L45 65 L70 35" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <div class="loader-text">Krustron</div>
+            <div class="loader-subtitle">Kubernetes Platform</div>
+            <div class="loading-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

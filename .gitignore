@@ -159,3 +159,44 @@ local/
 scratch/
 notes.md
 TODO.md
+
+# Claude Code
+.claude/
+
+# React/Vite Dashboard
+web/dashboard/node_modules/
+web/dashboard/dist/
+web/dashboard/.vite/
+web/dashboard/*.local
+
+# Static files (if generated)
+web/static/dist/
+web/static/build/
+
+# Next.js (if used)
+.next/
+out/
+
+# Storybook
+storybook-static/
+
+# Testing
+web/dashboard/coverage/
+*.lcov
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint/Prettier
+.eslintcache
+.prettiercache
+
+# Turbo
+.turbo
+
+# Vercel
+.vercel
+
+# PWA
+**/public/sw.js
+**/public/workbox-*.js
