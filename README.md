@@ -1,95 +1,144 @@
-# Krustron
+<div align="center">
 
-**Kubernetes-Native Platform for CI/CD, GitOps, and Cluster Management**
+<!-- Animated Banner -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/banner.svg">
+  <img alt="Krustron - Kubernetes-Native Platform" src="assets/banner.svg" width="100%">
+</picture>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5?style=flat&logo=kubernetes)](https://kubernetes.io/)
+<br/>
+<br/>
 
-Krustron is an open-source Devtron alternative that combines a unified dashboard, end-to-end GitOps CI/CD pipelines, multi-cluster management, and integrated observability/security with fine-grained RBAC and AI-assisted operations.
+<!-- Badges -->
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-## Author
+<br/>
 
-**Anubhav Gain** - <anubhavg@infopercept.com>
+**Open-source Kubernetes-native platform for CI/CD, GitOps, and Cluster Management**
+
+[Documentation](https://docs.krustron.io) · [Report Bug](https://github.com/anubhavg-icpl/krustron/issues) · [Request Feature](https://github.com/anubhavg-icpl/krustron/issues)
+
+</div>
+
+---
+
+## Overview
+
+Krustron is a comprehensive Kubernetes-native platform that unifies cluster management, CI/CD pipelines, GitOps workflows, and observability into a single, powerful dashboard. Built for modern DevOps teams who need to manage multiple clusters at scale.
+
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| **Multi-Cluster** | Manage 50+ Kubernetes clusters from a single pane of glass |
+| **GitOps** | Native ArgoCD integration with auto-sync and self-heal |
+| **CI/CD** | Visual pipeline builder with DORA metrics tracking |
+| **Security** | Container scanning with Trivy and OPA policy enforcement |
+| **Observability** | Integrated metrics, logging, and distributed tracing |
+
+</div>
 
 ## Features
 
+<table>
+<tr>
+<td width="50%">
+
 ### Core Platform
-- **Multi-Cluster Management** - Manage 50+ Kubernetes clusters from a single pane of glass
-- **Unified Dashboard** - Real-time resource browser for Nodes, Pods, Deployments, and CRDs
-- **Fine-grained RBAC** - Role-based access control with OIDC/SSO integration
+- **Unified Dashboard** — Real-time resource browser for Nodes, Pods, Deployments, and CRDs
+- **Multi-Cluster Management** — Single control plane for all your clusters
+- **Fine-grained RBAC** — Role-based access control with OIDC/SSO integration
+- **Real-time WebSocket** — Live updates and streaming logs
+
+</td>
+<td width="50%">
 
 ### GitOps & CI/CD
-- **Visual Pipeline Builder** - Drag-and-drop YAML editor for build, deploy, and promote stages
-- **ArgoCD Integration** - Native GitOps with automatic sync, prune, and self-heal
-- **Canary & Blue/Green Deployments** - Traffic splitting via Istio/Linkerd
-- **DORA Metrics** - Built-in deployment frequency, lead time, and MTTR tracking
+- **Visual Pipeline Builder** — Drag-and-drop YAML editor
+- **ArgoCD Integration** — Native GitOps with automatic sync
+- **Canary & Blue/Green** — Traffic splitting via Istio/Linkerd
+- **DORA Metrics** — Deployment frequency, lead time, MTTR
+
+</td>
+</tr>
+<tr>
+<td width="50%">
 
 ### Helm Management
-- **Repository Management** - Add, sync, and search Helm repositories
-- **Release Management** - Install, upgrade, rollback, and uninstall releases
-- **Drift Detection** - Alert when cluster state differs from Helm values
-- **History & Rollback** - Full release history with one-click rollback
+- **Repository Management** — Add, sync, and search Helm repos
+- **Release Management** — Install, upgrade, rollback releases
+- **Drift Detection** — Alert when cluster state differs
+- **History & Rollback** — Full release history tracking
 
-### Security
-- **Container Scanning** - Trivy integration for vulnerability detection
-- **Policy Enforcement** - OPA policies with pre-deploy validation
-- **Wazuh Integration** - Host-level security monitoring
-- **Security Gates** - Block deployments on critical vulnerabilities
+</td>
+<td width="50%">
 
-### Observability
-- **Metrics** - Prometheus integration with Grafana dashboards
-- **Logging** - Centralized logging with OpenSearch/Elasticsearch
-- **Tracing** - Distributed tracing with Jaeger/OpenTelemetry
-- **Alerting** - Alertmanager integration with multi-channel notifications
+### Security & Observability
+- **Container Scanning** — Trivy vulnerability detection
+- **Policy Enforcement** — OPA policies with pre-deploy validation
+- **Metrics & Logging** — Prometheus + OpenSearch integration
+- **Distributed Tracing** — Jaeger/OpenTelemetry support
 
-### AI Operations (Coming Soon)
-- **Natural Language Queries** - "Why is payment-service crashing?"
-- **Auto-remediation** - Event-driven automation for common issues
-- **Cost Optimization** - AI-powered rightsizing recommendations
+</td>
+</tr>
+</table>
+
+### AI Operations *(Coming Soon)*
+> Natural language queries, auto-remediation, and AI-powered cost optimization
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Krustron Platform                        │
-├─────────────┬─────────────┬─────────────┬─────────────┬─────────┤
-│   API       │   GitOps    │  Pipeline   │  Security   │   AI    │
-│   Server    │   Engine    │   Engine    │   Scanner   │   Ops   │
-├─────────────┴─────────────┴─────────────┴─────────────┴─────────┤
-│                    Core Services Layer                           │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │ Cluster  │ │   Helm   │ │   Auth   │ │Observability│         │
-│  │ Manager  │ │ Manager  │ │  (RBAC)  │ │  (OTEL)  │           │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
-├─────────────────────────────────────────────────────────────────┤
-│                    Infrastructure Layer                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │PostgreSQL│ │  Redis   │ │   NATS   │ │  ArgoCD  │            │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-        ┌──────────────────────────────────────────┐
-        │            Kubernetes Clusters            │
-        │  ┌────────┐  ┌────────┐  ┌────────┐     │
-        │  │ Prod   │  │ Stage  │  │  Dev   │     │
-        │  │Cluster │  │Cluster │  │Cluster │     │
-        │  └────────┘  └────────┘  └────────┘     │
-        └──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           KRUSTRON PLATFORM                              │
+├─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┤
+│   React     │   API       │   GitOps    │  Pipeline   │    Security     │
+│  Dashboard  │   Server    │   Engine    │   Engine    │    Scanner      │
+├─────────────┴─────────────┴─────────────┴─────────────┴─────────────────┤
+│                         CORE SERVICES LAYER                              │
+│  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌──────────────┐ │
+│  │   Cluster     │ │     Helm      │ │     Auth      │ │ Observability│ │
+│  │   Manager     │ │   Manager     │ │    (RBAC)     │ │    (OTEL)    │ │
+│  └───────────────┘ └───────────────┘ └───────────────┘ └──────────────┘ │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       INFRASTRUCTURE LAYER                               │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐   │
+│  │  PostgreSQL  │ │    Redis     │ │     NATS     │ │    ArgoCD    │   │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+              ┌───────────────────────────────────────────┐
+              │            KUBERNETES CLUSTERS            │
+              │  ┌─────────┐  ┌─────────┐  ┌─────────┐   │
+              │  │  Prod   │  │  Stage  │  │   Dev   │   │
+              │  │ Cluster │  │ Cluster │  │ Cluster │   │
+              │  └─────────┘  └─────────┘  └─────────┘   │
+              └───────────────────────────────────────────┘
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Go 1.22+
-- Docker & Docker Compose
-- Kubernetes cluster (local or remote)
-- PostgreSQL 14+
-- Redis 7+
+| Requirement | Version |
+|-------------|---------|
+| Go | 1.22+ |
+| Node.js | 18+ |
+| Docker | 20+ |
+| Kubernetes | 1.28+ |
+| PostgreSQL | 14+ |
+| Redis | 7+ |
 
-### Local Development
+### Installation
+
+<details>
+<summary><strong>Local Development</strong></summary>
 
 ```bash
 # Clone the repository
@@ -102,28 +151,37 @@ make deps
 # Run database migrations
 make migrate-up
 
-# Start the server
+# Start the backend server
 make run
 
-# Or use hot reload
-make dev
+# In another terminal, start the dashboard
+cd web/dashboard
+npm install
+npm run dev
 ```
 
-### Docker
+</details>
+
+<details>
+<summary><strong>Docker Compose</strong></summary>
 
 ```bash
-# Build the image
-docker build -t krustron:latest .
-
-# Run with Docker Compose
+# Build and run all services
 docker-compose up -d
+
+# View logs
+docker-compose logs -f krustron
 ```
 
-### Kubernetes (Helm)
+</details>
+
+<details>
+<summary><strong>Kubernetes (Helm)</strong></summary>
 
 ```bash
 # Add the Helm repository
 helm repo add krustron https://charts.krustron.io
+helm repo update
 
 # Install Krustron
 helm install krustron krustron/krustron \
@@ -133,16 +191,14 @@ helm install krustron krustron/krustron \
   --set redis.enabled=true
 ```
 
+</details>
+
 ## Configuration
 
-Krustron can be configured via:
-- Configuration file (`config.yaml`)
-- Environment variables (prefixed with `KRUSTRON_`)
-- Command-line flags
+Krustron can be configured via configuration file, environment variables, or CLI flags.
 
-See [config.yaml](config.yaml) for all available options.
-
-### Environment Variables
+<details>
+<summary><strong>Environment Variables</strong></summary>
 
 ```bash
 # Database
@@ -158,111 +214,115 @@ export KRUSTRON_AUTH_OIDC_CLIENT_SECRET=your-oidc-secret
 export KRUSTRON_GITOPS_ARGOCD_AUTH_TOKEN=your-argocd-token
 ```
 
-## API Documentation
+</details>
 
-API documentation is available at `/swagger/index.html` when running the server.
+## API Reference
 
-### Key Endpoints
+Full API documentation available at `/swagger/index.html` when running the server.
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/v1/clusters` | List all clusters |
-| `POST /api/v1/clusters` | Add a new cluster |
-| `GET /api/v1/applications` | List GitOps applications |
-| `POST /api/v1/applications/:id/sync` | Trigger application sync |
-| `GET /api/v1/helm/releases` | List Helm releases |
-| `POST /api/v1/pipelines/:id/trigger` | Trigger pipeline |
-| `GET /api/v1/security/scans` | List security scans |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/clusters` | GET | List all clusters |
+| `/api/v1/clusters` | POST | Add a new cluster |
+| `/api/v1/applications` | GET | List GitOps applications |
+| `/api/v1/applications/:id/sync` | POST | Trigger application sync |
+| `/api/v1/helm/releases` | GET | List Helm releases |
+| `/api/v1/pipelines/:id/trigger` | POST | Trigger pipeline |
+| `/api/v1/security/scans` | GET | List security scans |
 
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 krustron/
-├── cmd/krustron/         # Main entry point
+├── cmd/krustron/           # Main entry point
 ├── api/
-│   ├── handlers/         # HTTP handlers
-│   ├── middleware/       # HTTP middleware
-│   └── router/           # Route definitions
+│   ├── handlers/           # HTTP handlers
+│   ├── middleware/         # HTTP middleware
+│   └── router/             # Route definitions
 ├── internal/
-│   ├── cluster/          # Cluster management
-│   ├── helm/             # Helm operations
-│   ├── gitops/           # GitOps (ArgoCD)
-│   ├── pipeline/         # CI/CD pipelines
-│   ├── auth/             # Authentication & RBAC
-│   ├── security/         # Security scanning
-│   └── observability/    # Metrics, logs, traces
+│   ├── cluster/            # Cluster management
+│   ├── helm/               # Helm operations
+│   ├── gitops/             # GitOps (ArgoCD)
+│   ├── pipeline/           # CI/CD pipelines
+│   ├── auth/               # Authentication & RBAC
+│   ├── security/           # Security scanning
+│   └── observability/      # Metrics, logs, traces
 ├── pkg/
-│   ├── kube/             # Kubernetes client
-│   ├── logger/           # Logging
-│   ├── config/           # Configuration
-│   ├── errors/           # Error handling
-│   ├── database/         # Database utilities
-│   └── cache/            # Redis cache
-├── charts/krustron/      # Helm chart
-└── docs/                 # Documentation
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-make test
-
-# Run unit tests only
-make test-unit
-
-# Run with coverage
-make test-coverage
-```
-
-### Building
-
-```bash
-# Build for current platform
-make build
-
-# Build for all platforms
-make build-all
-
-# Build Docker image
-make docker-build
+│   ├── kube/               # Kubernetes client
+│   ├── logger/             # Logging
+│   ├── config/             # Configuration
+│   ├── websocket/          # WebSocket server
+│   └── cache/              # Redis cache
+├── web/dashboard/          # React dashboard
+├── charts/krustron/        # Helm chart
+└── assets/                 # Logo and images
 ```
 
 ## Roadmap
 
-### Phase 1: MVP Dashboard (Weeks 1-4)
+<table>
+<tr>
+<td>
+
+**Phase 1: MVP Dashboard**
 - [x] Resource browser
 - [x] Helm app management
 - [x] Basic RBAC
 - [x] Multi-cluster support
+- [x] Real-time WebSocket
 
-### Phase 2: CI/CD GitOps (Weeks 5-10)
+</td>
+<td>
+
+**Phase 2: CI/CD & GitOps**
 - [x] Visual pipeline builder
 - [x] ArgoCD integration
 - [ ] Canary deployments
 - [x] DORA metrics
 
-### Phase 3: Enterprise Extensions (Weeks 11-18)
-- [ ] AI operations (LLM integration)
-- [ ] Cost management (KubeCost)
+</td>
+<td>
+
+**Phase 3: Enterprise**
+- [ ] AI operations (LLM)
+- [ ] Cost management
 - [ ] Auto-remediation
 - [ ] 100+ integrations
+
+</td>
+</tr>
+</table>
 
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+# Fork the repository
+# Create your feature branch
+git checkout -b feature/amazing-feature
 
-## License
+# Commit your changes
+git commit -m 'Add amazing feature'
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+# Push to the branch
+git push origin feature/amazing-feature
+
+# Open a Pull Request
+```
+
+## Tech Stack
+
+<div align="center">
+
+| Backend | Frontend | Infrastructure |
+|---------|----------|----------------|
+| ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white) | ![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black) | ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white) |
+| ![Gin](https://img.shields.io/badge/Gin-00ADD8?style=flat-square&logo=go&logoColor=white) | ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) | ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white) |
+| ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white) | ![Tailwind](https://img.shields.io/badge/Tailwind-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) | ![Helm](https://img.shields.io/badge/Helm-0F1689?style=flat-square&logo=helm&logoColor=white) |
+| ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white) | ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white) | ![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?style=flat-square&logo=argo&logoColor=white) |
+
+</div>
 
 ## Support
 
@@ -270,11 +330,31 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - **Issues**: [GitHub Issues](https://github.com/anubhavg-icpl/krustron/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/anubhavg-icpl/krustron/discussions)
 
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
 ## Acknowledgments
 
-- Inspired by [Devtron](https://github.com/devtron-labs/devtron)
-- Built with [Gin](https://github.com/gin-gonic/gin), [client-go](https://github.com/kubernetes/client-go), and [ArgoCD](https://github.com/argoproj/argo-cd)
+Built with [Gin](https://github.com/gin-gonic/gin), [client-go](https://github.com/kubernetes/client-go), and [ArgoCD](https://github.com/argoproj/argo-cd)
 
 ---
 
-**Made with love by [Anubhav Gain](mailto:anubhavg@infopercept.com)**
+<div align="center">
+
+**[Krustron](https://krustron.io)** — Kubernetes Platform for Modern DevOps
+
+<br/>
+
+Made with ❤️ by [Anubhav Gain](mailto:anubhavg@infopercept.com)
+
+<br/>
+
+<a href="https://github.com/anubhavg-icpl/krustron/stargazers">
+  <img src="https://img.shields.io/github/stars/anubhavg-icpl/krustron?style=social" alt="GitHub stars">
+</a>
+<a href="https://github.com/anubhavg-icpl/krustron/network/members">
+  <img src="https://img.shields.io/github/forks/anubhavg-icpl/krustron?style=social" alt="GitHub forks">
+</a>
+
+</div>

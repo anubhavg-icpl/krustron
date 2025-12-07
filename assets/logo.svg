@@ -1,0 +1,106 @@
+<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient definitions -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="50%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#f97316"/>
+    </linearGradient>
+
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+
+    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Drop shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#2563eb" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle with subtle glow -->
+  <circle cx="100" cy="100" r="90" fill="#0A0E27" filter="url(#shadow)"/>
+
+  <!-- Outer rotating ring -->
+  <circle cx="100" cy="100" r="85" stroke="url(#mainGradient)" stroke-width="2" fill="none" stroke-dasharray="20 10" opacity="0.6">
+    <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="30s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Middle pulsing ring -->
+  <circle cx="100" cy="100" r="75" stroke="url(#blueGradient)" stroke-width="3" fill="none" filter="url(#glow)">
+    <animate attributeName="opacity" values="0.4;0.8;0.4" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="73;77;73" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Kubernetes-inspired hexagon -->
+  <g filter="url(#glow)">
+    <polygon points="100,35 145,60 145,110 100,135 55,110 55,60" fill="none" stroke="url(#mainGradient)" stroke-width="3" stroke-linejoin="round">
+      <animate attributeName="stroke-dasharray" values="0 500;500 0" dur="2s" fill="freeze"/>
+    </polygon>
+  </g>
+
+  <!-- Inner hexagon -->
+  <polygon points="100,50 130,67 130,103 100,120 70,103 70,67" fill="rgba(37, 99, 235, 0.1)" stroke="url(#blueGradient)" stroke-width="1.5"/>
+
+  <!-- K letter stylized -->
+  <g transform="translate(100, 85)" filter="url(#glow)">
+    <!-- Vertical bar of K -->
+    <line x1="-15" y1="-25" x2="-15" y2="25" stroke="url(#blueGradient)" stroke-width="5" stroke-linecap="round">
+      <animate attributeName="stroke-dasharray" values="0 60;60 0" dur="1s" begin="0.5s" fill="freeze"/>
+    </line>
+    <!-- Upper diagonal of K -->
+    <line x1="-15" y1="0" x2="15" y2="-25" stroke="url(#orangeGradient)" stroke-width="5" stroke-linecap="round">
+      <animate attributeName="stroke-dasharray" values="0 50;50 0" dur="0.8s" begin="1s" fill="freeze"/>
+    </line>
+    <!-- Lower diagonal of K -->
+    <line x1="-15" y1="0" x2="15" y2="25" stroke="url(#orangeGradient)" stroke-width="5" stroke-linecap="round">
+      <animate attributeName="stroke-dasharray" values="0 50;50 0" dur="0.8s" begin="1.2s" fill="freeze"/>
+    </line>
+  </g>
+
+  <!-- Orbiting nodes -->
+  <g>
+    <circle cx="100" cy="20" r="6" fill="url(#blueGradient)" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <g>
+    <circle cx="170" cy="140" r="5" fill="url(#orangeGradient)" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="120 100 100" to="480 100 100" dur="10s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <g>
+    <circle cx="30" cy="140" r="4" fill="#8B5CF6" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" from="240 100 100" to="600 100 100" dur="12s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Connection lines from center to orbiting nodes -->
+  <g opacity="0.3">
+    <line x1="100" y1="85" x2="100" y2="26" stroke="url(#blueGradient)" stroke-width="1">
+      <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="8s" repeatCount="indefinite"/>
+    </line>
+    <line x1="100" y1="85" x2="164" y2="135" stroke="url(#orangeGradient)" stroke-width="1">
+      <animateTransform attributeName="transform" type="rotate" from="120 100 100" to="480 100 100" dur="10s" repeatCount="indefinite"/>
+    </line>
+    <line x1="100" y1="85" x2="36" y2="135" stroke="#8B5CF6" stroke-width="1">
+      <animateTransform attributeName="transform" type="rotate" from="240 100 100" to="600 100 100" dur="12s" repeatCount="indefinite"/>
+    </line>
+  </g>
+</svg>

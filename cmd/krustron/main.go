@@ -1,5 +1,5 @@
 // Krustron - Kubernetes Native Platform
-// A Devtron alternative for unified Kubernetes management
+// Unified Kubernetes management for modern DevOps teams
 //
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 // License: Apache 2.0

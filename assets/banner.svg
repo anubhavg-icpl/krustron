@@ -1,0 +1,195 @@
+<svg viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0E27"/>
+      <stop offset="50%" style="stop-color:#0f1538"/>
+      <stop offset="100%" style="stop-color:#0A0E27"/>
+    </linearGradient>
+
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="50%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#f97316"/>
+      <animate attributeName="x1" values="0%;100%;0%" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="x2" values="100%;200%;100%" dur="4s" repeatCount="indefinite"/>
+    </linearGradient>
+
+    <linearGradient id="blueGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+
+    <linearGradient id="orangeGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="textGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="400" fill="url(#bgGradient)"/>
+
+  <!-- Animated grid lines -->
+  <g opacity="0.1">
+    <line x1="0" y1="100" x2="1200" y2="100" stroke="#2563eb" stroke-width="1">
+      <animate attributeName="opacity" values="0.1;0.3;0.1" dur="3s" repeatCount="indefinite"/>
+    </line>
+    <line x1="0" y1="200" x2="1200" y2="200" stroke="#8B5CF6" stroke-width="1">
+      <animate attributeName="opacity" values="0.1;0.3;0.1" dur="4s" repeatCount="indefinite"/>
+    </line>
+    <line x1="0" y1="300" x2="1200" y2="300" stroke="#f97316" stroke-width="1">
+      <animate attributeName="opacity" values="0.1;0.3;0.1" dur="5s" repeatCount="indefinite"/>
+    </line>
+  </g>
+
+  <!-- Floating orbs background -->
+  <circle cx="100" cy="80" r="60" fill="#2563eb" opacity="0.1" filter="blur(40px)">
+    <animate attributeName="cy" values="80;120;80" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="1100" cy="320" r="80" fill="#f97316" opacity="0.1" filter="blur(50px)">
+    <animate attributeName="cy" values="320;280;320" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="600" cy="350" r="100" fill="#8B5CF6" opacity="0.08" filter="blur(60px)">
+    <animate attributeName="cx" values="600;650;600" dur="10s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Logo on the left -->
+  <g transform="translate(120, 200)">
+    <!-- Outer rotating ring -->
+    <circle cx="0" cy="0" r="80" stroke="url(#textGradient)" stroke-width="2" fill="none" stroke-dasharray="15 8" opacity="0.6">
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="20s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Middle pulsing ring -->
+    <circle cx="0" cy="0" r="70" stroke="url(#blueGlow)" stroke-width="2" fill="none" filter="url(#glow)">
+      <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Hexagon -->
+    <polygon points="0,-55 48,-27 48,27 0,55 -48,27 -48,-27" fill="rgba(37, 99, 235, 0.15)" stroke="url(#textGradient)" stroke-width="2.5" stroke-linejoin="round" filter="url(#glow)"/>
+
+    <!-- K letter -->
+    <g filter="url(#glow)">
+      <line x1="-18" y1="-30" x2="-18" y2="30" stroke="url(#blueGlow)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="-18" y1="0" x2="18" y2="-30" stroke="url(#orangeGlow)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="-18" y1="0" x2="18" y2="30" stroke="url(#orangeGlow)" stroke-width="6" stroke-linecap="round"/>
+    </g>
+
+    <!-- Orbiting nodes -->
+    <circle r="8" fill="url(#blueGlow)" filter="url(#glow)">
+      <animateMotion dur="6s" repeatCount="indefinite" path="M 0,-85 A 85,85 0 1,1 0,85 A 85,85 0 1,1 0,-85"/>
+    </circle>
+    <circle r="6" fill="url(#orangeGlow)" filter="url(#glow)">
+      <animateMotion dur="8s" repeatCount="indefinite" path="M 85,0 A 85,85 0 1,1 -85,0 A 85,85 0 1,1 85,0"/>
+    </circle>
+  </g>
+
+  <!-- Main title -->
+  <text x="280" y="175" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="72" font-weight="700" fill="url(#textGradient)" filter="url(#textGlow)">
+    Krustron
+    <animate attributeName="opacity" values="0;1" dur="1s" fill="freeze"/>
+  </text>
+
+  <!-- Tagline -->
+  <text x="280" y="230" font-family="'DM Sans', 'Segoe UI', sans-serif" font-size="24" fill="#94a3b8" letter-spacing="0.05em">
+    Kubernetes-Native Platform for Modern DevOps
+    <animate attributeName="opacity" values="0;1" dur="1s" begin="0.5s" fill="freeze"/>
+  </text>
+
+  <!-- Feature badges -->
+  <g transform="translate(280, 280)">
+    <!-- CI/CD Badge -->
+    <g>
+      <rect x="0" y="0" width="110" height="36" rx="18" fill="rgba(37, 99, 235, 0.2)" stroke="rgba(37, 99, 235, 0.5)" stroke-width="1"/>
+      <text x="55" y="23" font-family="'DM Sans', sans-serif" font-size="13" fill="#60a5fa" text-anchor="middle" font-weight="500">CI/CD</text>
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1s" fill="freeze"/>
+    </g>
+
+    <!-- GitOps Badge -->
+    <g transform="translate(125, 0)">
+      <rect x="0" y="0" width="110" height="36" rx="18" fill="rgba(139, 92, 246, 0.2)" stroke="rgba(139, 92, 246, 0.5)" stroke-width="1"/>
+      <text x="55" y="23" font-family="'DM Sans', sans-serif" font-size="13" fill="#a78bfa" text-anchor="middle" font-weight="500">GitOps</text>
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.2s" fill="freeze"/>
+    </g>
+
+    <!-- Multi-Cluster Badge -->
+    <g transform="translate(250, 0)">
+      <rect x="0" y="0" width="140" height="36" rx="18" fill="rgba(249, 115, 22, 0.2)" stroke="rgba(249, 115, 22, 0.5)" stroke-width="1"/>
+      <text x="70" y="23" font-family="'DM Sans', sans-serif" font-size="13" fill="#fb923c" text-anchor="middle" font-weight="500">Multi-Cluster</text>
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.4s" fill="freeze"/>
+    </g>
+
+    <!-- Security Badge -->
+    <g transform="translate(405, 0)">
+      <rect x="0" y="0" width="110" height="36" rx="18" fill="rgba(34, 197, 94, 0.2)" stroke="rgba(34, 197, 94, 0.5)" stroke-width="1"/>
+      <text x="55" y="23" font-family="'DM Sans', sans-serif" font-size="13" fill="#4ade80" text-anchor="middle" font-weight="500">Security</text>
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.6s" fill="freeze"/>
+    </g>
+
+    <!-- Observability Badge -->
+    <g transform="translate(530, 0)">
+      <rect x="0" y="0" width="130" height="36" rx="18" fill="rgba(6, 182, 212, 0.2)" stroke="rgba(6, 182, 212, 0.5)" stroke-width="1"/>
+      <text x="65" y="23" font-family="'DM Sans', sans-serif" font-size="13" fill="#22d3ee" text-anchor="middle" font-weight="500">Observability</text>
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.8s" fill="freeze"/>
+    </g>
+  </g>
+
+  <!-- Decorative kubernetes nodes on right side -->
+  <g transform="translate(950, 200)" opacity="0.6">
+    <!-- Central node -->
+    <circle cx="0" cy="0" r="20" fill="rgba(37, 99, 235, 0.3)" stroke="#2563eb" stroke-width="2">
+      <animate attributeName="r" values="18;22;18" dur="2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Connected nodes -->
+    <g>
+      <line x1="0" y1="0" x2="60" y2="-50" stroke="#2563eb" stroke-width="1" opacity="0.5"/>
+      <circle cx="60" cy="-50" r="12" fill="rgba(139, 92, 246, 0.3)" stroke="#8B5CF6" stroke-width="1.5">
+        <animate attributeName="r" values="10;14;10" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <g>
+      <line x1="0" y1="0" x2="70" y2="40" stroke="#f97316" stroke-width="1" opacity="0.5"/>
+      <circle cx="70" cy="40" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5">
+        <animate attributeName="r" values="10;14;10" dur="3s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <g>
+      <line x1="0" y1="0" x2="-50" y2="60" stroke="#22c55e" stroke-width="1" opacity="0.5"/>
+      <circle cx="-50" cy="60" r="12" fill="rgba(34, 197, 94, 0.3)" stroke="#22c55e" stroke-width="1.5">
+        <animate attributeName="r" values="10;14;10" dur="2.8s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <g>
+      <line x1="0" y1="0" x2="-60" y2="-40" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+      <circle cx="-60" cy="-40" r="12" fill="rgba(6, 182, 212, 0.3)" stroke="#06b6d4" stroke-width="1.5">
+        <animate attributeName="r" values="10;14;10" dur="3.2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- Bottom gradient line -->
+  <rect x="0" y="395" width="1200" height="5" fill="url(#textGradient)">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+  </rect>
+</svg>
