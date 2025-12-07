@@ -11,36 +11,27 @@ import {
   Download,
   RefreshCw,
   Filter,
-  ArrowDownRight,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
 } from 'recharts'
+import { BarChart2 } from 'lucide-react'
 
-// Mock data for visualization
-const severityData = [
-  { name: 'Critical', value: 3, color: '#ef4444' },
-  { name: 'High', value: 12, color: '#f97316' },
-  { name: 'Medium', value: 28, color: '#eab308' },
-  { name: 'Low', value: 45, color: '#3b82f6' },
-]
-
-const vulnerabilityTrend = [
-  { date: 'Week 1', critical: 5, high: 15, medium: 30, low: 50 },
-  { date: 'Week 2', critical: 4, high: 12, medium: 28, low: 48 },
-  { date: 'Week 3', critical: 3, high: 14, medium: 25, low: 45 },
-  { date: 'Week 4', critical: 3, high: 12, medium: 28, low: 45 },
-]
+// Types
+interface Vulnerability {
+  cve: string
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  title: string
+  packageName: string
+  installedVersion: string
+  fixedVersion?: string
+  affectedImages: number
+}
 
 // Vulnerability Card
 function VulnerabilityCard({
@@ -51,15 +42,7 @@ function VulnerabilityCard({
   installedVersion,
   fixedVersion,
   affectedImages,
-}: {
-  cve: string
-  severity: 'critical' | 'high' | 'medium' | 'low'
-  title: string
-  packageName: string
-  installedVersion: string
-  fixedVersion?: string
-  affectedImages: number
-}) {
+}: Vulnerability) {
   const severityStyles = {
     critical: 'bg-status-error/20 text-status-error border-status-error/30',
     high: 'bg-accent-500/20 text-accent-400 border-accent-500/30',
@@ -114,6 +97,15 @@ function VulnerabilityCard({
 // Security Overview
 function SecurityOverview() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [vulnerabilities] = useState<Vulnerability[]>([])
+
+  // Calculate severity counts from real data
+  const severityData = [
+    { name: 'Critical', value: vulnerabilities.filter(v => v.severity === 'critical').length, color: '#ef4444' },
+    { name: 'High', value: vulnerabilities.filter(v => v.severity === 'high').length, color: '#f97316' },
+    { name: 'Medium', value: vulnerabilities.filter(v => v.severity === 'medium').length, color: '#eab308' },
+    { name: 'Low', value: vulnerabilities.filter(v => v.severity === 'low').length, color: '#3b82f6' },
+  ]
 
   const totalVulnerabilities = severityData.reduce((acc, item) => acc + item.value, 0)
 
@@ -142,10 +134,6 @@ function SecurityOverview() {
         <div className="glass-card p-4">
           <div className="flex items-center justify-between">
             <Shield className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-status-healthy flex items-center gap-1">
-              <ArrowDownRight className="w-3 h-3" />
-              12%
-            </span>
           </div>
           <div className="text-2xl font-bold text-white mt-2">{totalVulnerabilities}</div>
           <div className="text-sm text-gray-400">Total Issues</div>
@@ -170,74 +158,60 @@ function SecurityOverview() {
         {/* Severity Distribution */}
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Severity Distribution</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={severityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {severityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(26, 31, 61, 0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap justify-center gap-4 mt-4">
-            {severityData.map((item) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-xs text-gray-400">{item.name}</span>
+          {totalVulnerabilities === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+              <Shield className="w-12 h-12 mb-2 opacity-50" />
+              <p className="text-sm">No vulnerabilities found</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={severityData.filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {severityData.filter(d => d.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(26, 31, 61, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="flex flex-wrap justify-center gap-4 mt-4">
+                {severityData.map((item) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-xs text-gray-400">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Trend Chart */}
         <div className="lg:col-span-2 glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Vulnerability Trend</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vulnerabilityTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis
-                  dataKey="date"
-                  stroke="rgba(255,255,255,0.3)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                />
-                <YAxis
-                  stroke="rgba(255,255,255,0.3)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(26, 31, 61, 0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                  }}
-                />
-                <Bar dataKey="critical" stackId="a" fill="#ef4444" />
-                <Bar dataKey="high" stackId="a" fill="#f97316" />
-                <Bar dataKey="medium" stackId="a" fill="#eab308" />
-                <Bar dataKey="low" stackId="a" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+            <BarChart2 className="w-12 h-12 mb-2 opacity-50" />
+            <p className="text-sm">Run a scan to see vulnerability trends</p>
           </div>
         </div>
       </div>
@@ -261,43 +235,26 @@ function SecurityOverview() {
       </div>
 
       {/* Vulnerabilities List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <VulnerabilityCard
-          cve="CVE-2024-1234"
-          severity="critical"
-          title="Remote Code Execution in libcurl"
-          packageName="libcurl"
-          installedVersion="7.68.0"
-          fixedVersion="7.88.0"
-          affectedImages={5}
-        />
-        <VulnerabilityCard
-          cve="CVE-2024-5678"
-          severity="high"
-          title="Authentication Bypass in OpenSSL"
-          packageName="openssl"
-          installedVersion="1.1.1f"
-          fixedVersion="1.1.1t"
-          affectedImages={12}
-        />
-        <VulnerabilityCard
-          cve="CVE-2024-9012"
-          severity="medium"
-          title="Cross-Site Scripting in nginx"
-          packageName="nginx"
-          installedVersion="1.18.0"
-          fixedVersion="1.24.0"
-          affectedImages={3}
-        />
-        <VulnerabilityCard
-          cve="CVE-2024-3456"
-          severity="low"
-          title="Information Disclosure in glibc"
-          packageName="glibc"
-          installedVersion="2.31"
-          affectedImages={8}
-        />
-      </div>
+      {vulnerabilities.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+          <h3 className="text-xl font-semibold text-white mb-2">No Vulnerabilities</h3>
+          <p className="text-gray-400 mb-4">Run a security scan to detect vulnerabilities in your images</p>
+          <button className="glass-btn-primary">
+            <RefreshCw className="w-4 h-4 mr-2 inline" />
+            Run Scan
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {vulnerabilities
+            .filter(v => v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        v.cve.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map((vuln) => (
+              <VulnerabilityCard key={vuln.cve} {...vuln} />
+            ))}
+        </div>
+      )}
     </div>
   )
 }

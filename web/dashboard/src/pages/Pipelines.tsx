@@ -225,12 +225,17 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
 
 // Pipelines List
 function PipelinesList() {
+  const navigate = useNavigate()
   const { pipelines, loading } = usePipelinesStore()
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredPipelines = pipelines.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleCreatePipeline = () => {
+    navigate('/pipelines/new')
+  }
 
   return (
     <div className="space-y-6">
@@ -240,7 +245,7 @@ function PipelinesList() {
           <h1 className="text-2xl font-bold text-white">Pipelines</h1>
           <p className="text-gray-400 mt-1">CI/CD pipeline management</p>
         </div>
-        <button className="glass-btn-primary flex items-center gap-2">
+        <button onClick={handleCreatePipeline} className="glass-btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Create Pipeline
         </button>
@@ -306,7 +311,7 @@ function PipelinesList() {
           <p className="text-gray-400 mb-4">
             Create your first CI/CD pipeline to automate deployments
           </p>
-          <button className="glass-btn-primary">
+          <button onClick={handleCreatePipeline} className="glass-btn-primary">
             <Plus className="w-4 h-4 mr-2" />
             Create Pipeline
           </button>
@@ -332,10 +337,147 @@ function PipelineDetail() {
   )
 }
 
+// Pipeline Create Page
+function PipelineCreate() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [gitRepo, setGitRepo] = useState('')
+  const [branch, setBranch] = useState('main')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/v1/pipelines', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          gitRepository: gitRepo,
+          branch,
+          stages: [
+            { name: 'Build', type: 'build' },
+            { name: 'Test', type: 'test' },
+            { name: 'Deploy', type: 'deploy' },
+          ],
+        }),
+      })
+
+      if (response.ok) {
+        navigate('/pipelines')
+      }
+    } catch (error) {
+      console.error('Failed to create pipeline:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Create Pipeline</h1>
+        <p className="text-gray-400 mt-1">Configure a new CI/CD pipeline</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="glass-card p-6 space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Pipeline Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., my-app-pipeline"
+            className="glass-input"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Pipeline description..."
+            className="glass-input min-h-[80px]"
+            rows={3}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Git Repository URL
+          </label>
+          <input
+            type="text"
+            value={gitRepo}
+            onChange={(e) => setGitRepo(e.target.value)}
+            placeholder="https://github.com/org/repo"
+            className="glass-input"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Branch
+          </label>
+          <input
+            type="text"
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+            placeholder="main"
+            className="glass-input"
+          />
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/pipelines')}
+            className="glass-btn flex-1"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || !name || !gitRepo}
+            className="glass-btn-primary flex-1 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Create Pipeline
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function Pipelines() {
   return (
     <Routes>
       <Route index element={<PipelinesList />} />
+      <Route path="new" element={<PipelineCreate />} />
       <Route path=":id/*" element={<PipelineDetail />} />
     </Routes>
   )

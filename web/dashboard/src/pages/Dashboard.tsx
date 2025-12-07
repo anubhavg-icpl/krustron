@@ -212,13 +212,8 @@ export default function Dashboard() {
     }
   }, [subscribe, isConnected])
 
-  // Mock data for initial render
-  const mockCpuHistory = Array.from({ length: 30 }, (_, i) => ({
-    time: `${String(i).padStart(2, '0')}:00`,
-    value: Math.floor(Math.random() * 40) + 30,
-  }))
-
-  const displayCpuHistory = cpuHistory.length > 0 ? cpuHistory : mockCpuHistory
+  // Use real data only
+  const displayCpuHistory = cpuHistory
 
   // Calculate summary stats
   const healthyClusters = clusters.filter(c => c.status === 'connected').length
@@ -343,44 +338,51 @@ export default function Dashboard() {
         {/* Resource Usage */}
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Resource Usage</h3>
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-primary-400" />
-                  <span className="text-sm text-gray-400">CPU</span>
+          {clusters.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+              <Server className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-sm">No clusters connected</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-primary-400" />
+                    <span className="text-sm text-gray-400">CPU</span>
+                  </div>
+                  <span className="text-sm font-medium text-white">0%</span>
                 </div>
-                <span className="text-sm font-medium text-white">45%</span>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: '0%' }} />
+                </div>
               </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '45%' }} />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-4 h-4 text-accent-400" />
+                    <span className="text-sm text-gray-400">Memory</span>
+                  </div>
+                  <span className="text-sm font-medium text-white">0%</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: '0%' }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Box className="w-4 h-4 text-status-info" />
+                    <span className="text-sm text-gray-400">Pods</span>
+                  </div>
+                  <span className="text-sm font-medium text-white">0%</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: '0%' }} />
+                </div>
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-accent-400" />
-                  <span className="text-sm text-gray-400">Memory</span>
-                </div>
-                <span className="text-sm font-medium text-white">62%</span>
-              </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '62%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Box className="w-4 h-4 text-status-info" />
-                  <span className="text-sm text-gray-400">Pods</span>
-                </div>
-                <span className="text-sm font-medium text-white">78%</span>
-              </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '78%' }} />
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -393,43 +395,25 @@ export default function Dashboard() {
       {/* Recent Activity */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Recent Activity</h3>
-        <div className="space-y-1">
-          <ActivityItem
-            icon={CheckCircle}
-            iconColor="bg-status-healthy"
-            title="Pipeline 'build-deploy' succeeded"
-            description="Application 'my-app' deployed to production"
-            time="2 min ago"
-          />
-          <ActivityItem
-            icon={Box}
-            iconColor="bg-primary-500"
-            title="Application 'api-gateway' synced"
-            description="3 resources updated in cluster 'production'"
-            time="5 min ago"
-          />
-          <ActivityItem
-            icon={AlertCircle}
-            iconColor="bg-status-warning"
-            title="High memory usage detected"
-            description="Cluster 'staging' memory at 85%"
-            time="10 min ago"
-          />
-          <ActivityItem
-            icon={Server}
-            iconColor="bg-accent-500"
-            title="New cluster connected"
-            description="Cluster 'development' added successfully"
-            time="15 min ago"
-          />
-          <ActivityItem
-            icon={XCircle}
-            iconColor="bg-status-error"
-            title="Pipeline 'test-suite' failed"
-            description="Test stage failed with exit code 1"
-            time="20 min ago"
-          />
-        </div>
+        {alerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+            <Activity className="w-8 h-8 mb-2 opacity-50" />
+            <p className="text-sm">No recent activity</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {alerts.slice(0, 5).map((alert) => (
+              <ActivityItem
+                key={alert.id}
+                icon={alert.severity === 'critical' ? XCircle : alert.severity === 'warning' ? AlertCircle : CheckCircle}
+                iconColor={alert.severity === 'critical' ? 'bg-status-error' : alert.severity === 'warning' ? 'bg-status-warning' : 'bg-status-healthy'}
+                title={alert.summary}
+                description={alert.description || ''}
+                time={new Date(alert.startsAt).toLocaleTimeString()}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

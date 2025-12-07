@@ -31,29 +31,23 @@ import {
   Bar,
 } from 'recharts'
 
-// Mock data
-const costTrend = [
-  { date: 'Jan', cost: 4500, budget: 5000 },
-  { date: 'Feb', cost: 4800, budget: 5000 },
-  { date: 'Mar', cost: 5200, budget: 5000 },
-  { date: 'Apr', cost: 4900, budget: 5500 },
-  { date: 'May', cost: 5100, budget: 5500 },
-  { date: 'Jun', cost: 5400, budget: 5500 },
-]
+// Types
+interface CostData {
+  date: string
+  cost: number
+  budget: number
+}
 
-const costByCluster = [
-  { name: 'production', value: 3200, color: '#2563eb' },
-  { name: 'staging', value: 1500, color: '#f97316' },
-  { name: 'development', value: 800, color: '#22c55e' },
-  { name: 'testing', value: 400, color: '#eab308' },
-]
+interface ClusterCost {
+  name: string
+  value: number
+  color: string
+}
 
-const costByResource = [
-  { name: 'Compute', cost: 3500 },
-  { name: 'Storage', cost: 1200 },
-  { name: 'Network', cost: 800 },
-  { name: 'Load Balancer', cost: 400 },
-]
+interface ResourceCost {
+  name: string
+  cost: number
+}
 
 // Metric Card
 function CostMetricCard({
@@ -101,6 +95,9 @@ function CostMetricCard({
 // Cost Overview
 function CostOverview() {
   const [dateRange, setDateRange] = useState('30d')
+  const [costTrend] = useState<CostData[]>([])
+  const [costByCluster] = useState<ClusterCost[]>([])
+  const [costByResource] = useState<ResourceCost[]>([])
 
   const totalCost = costByCluster.reduce((acc, item) => acc + item.value, 0)
 
@@ -135,29 +132,29 @@ function CostOverview() {
         <CostMetricCard
           title="Current Month"
           value={`$${totalCost.toLocaleString()}`}
-          change="+12% vs last month"
-          changeType="up"
+          change={totalCost > 0 ? "Tracking enabled" : "No data yet"}
+          changeType="neutral"
           icon={DollarSign}
         />
         <CostMetricCard
           title="Forecasted"
-          value="$6,200"
+          value={totalCost > 0 ? `$${Math.round(totalCost * 1.1).toLocaleString()}` : "$0"}
           change="Based on current usage"
           changeType="neutral"
           icon={TrendingUp}
         />
         <CostMetricCard
           title="Budget Remaining"
-          value="$1,600"
-          change="29% of budget"
+          value="$0"
+          change="Set a budget to track"
           changeType="neutral"
           icon={AlertTriangle}
         />
         <CostMetricCard
           title="Potential Savings"
-          value="$450"
-          change="With recommendations"
-          changeType="down"
+          value="$0"
+          change="Run analysis to find savings"
+          changeType="neutral"
           icon={ArrowUpRight}
         />
       </div>
@@ -167,182 +164,171 @@ function CostOverview() {
         {/* Cost Trend */}
         <div className="lg:col-span-2 glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Cost vs Budget</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={costTrend}>
-                <defs>
-                  <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis
-                  dataKey="date"
-                  stroke="rgba(255,255,255,0.3)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                />
-                <YAxis
-                  stroke="rgba(255,255,255,0.3)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                  tickFormatter={(value) => `$${value / 1000}k`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(26, 31, 61, 0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                  }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="budget"
-                  stroke="#6b7280"
-                  strokeDasharray="5 5"
-                  fill="none"
-                  name="Budget"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="cost"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#costGradient)"
-                  name="Cost"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {costTrend.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <TrendingUp className="w-12 h-12 mb-2 opacity-50" />
+              <p className="text-sm">No cost data available yet</p>
+              <p className="text-xs mt-1">Connect cloud providers to track costs</p>
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={costTrend}>
+                  <defs>
+                    <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="rgba(255,255,255,0.3)"
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.3)"
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                    tickFormatter={(value) => `$${value / 1000}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(26, 31, 61, 0.95)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '12px',
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="budget"
+                    stroke="#6b7280"
+                    strokeDasharray="5 5"
+                    fill="none"
+                    name="Budget"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cost"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#costGradient)"
+                    name="Cost"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* Cost by Cluster */}
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Cost by Cluster</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={costByCluster}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {costByCluster.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(26, 31, 61, 0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                  }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-2 mt-4">
-            {costByCluster.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-sm text-gray-400">{item.name}</span>
-                </div>
-                <span className="text-sm font-medium text-white">
-                  ${item.value.toLocaleString()}
-                </span>
+          {costByCluster.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+              <Server className="w-12 h-12 mb-2 opacity-50" />
+              <p className="text-sm">No cluster costs</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={costByCluster}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {costByCluster.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(26, 31, 61, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px',
+                      }}
+                      formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="space-y-2 mt-4">
+                {costByCluster.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-sm text-gray-400">{item.name}</span>
+                    </div>
+                    <span className="text-sm font-medium text-white">
+                      ${item.value.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Cost by Resource */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Cost by Resource Type</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={costByResource} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis
-                type="number"
-                stroke="rgba(255,255,255,0.3)"
-                tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                tickFormatter={(value) => `$${value}`}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                stroke="rgba(255,255,255,0.3)"
-                tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                width={100}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(26, 31, 61, 0.95)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                }}
-                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Cost']}
-              />
-              <Bar dataKey="cost" fill="#2563eb" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {costByResource.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+            <Cpu className="w-12 h-12 mb-2 opacity-50" />
+            <p className="text-sm">No resource cost data</p>
+            <p className="text-xs mt-1">Enable cost tracking to see breakdown</p>
+          </div>
+        ) : (
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={costByResource} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <XAxis
+                  type="number"
+                  stroke="rgba(255,255,255,0.3)"
+                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="rgba(255,255,255,0.3)"
+                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                  width={100}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(26, 31, 61, 0.95)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                  }}
+                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Cost']}
+                />
+                <Bar dataKey="cost" fill="#2563eb" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Recommendations */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Cost Optimization Recommendations</h3>
-        <div className="space-y-4">
-          <div className="flex items-start gap-4 p-4 bg-glass-light rounded-xl">
-            <div className="p-2 rounded-lg bg-status-healthy/20">
-              <Cpu className="w-5 h-5 text-status-healthy" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-white">Right-size idle pods</h4>
-              <p className="text-sm text-gray-400 mt-1">
-                5 pods in production cluster have less than 10% CPU utilization.
-                Consider reducing resource requests.
-              </p>
-              <p className="text-sm text-status-healthy mt-2">Potential savings: $120/month</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4 p-4 bg-glass-light rounded-xl">
-            <div className="p-2 rounded-lg bg-status-warning/20">
-              <Server className="w-5 h-5 text-status-warning" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-white">Use spot instances for non-production</h4>
-              <p className="text-sm text-gray-400 mt-1">
-                Development and testing clusters can use spot instances for up to 70% cost reduction.
-              </p>
-              <p className="text-sm text-status-healthy mt-2">Potential savings: $280/month</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4 p-4 bg-glass-light rounded-xl">
-            <div className="p-2 rounded-lg bg-status-info/20">
-              <Box className="w-5 h-5 text-status-info" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-white">Clean up unused PVCs</h4>
-              <p className="text-sm text-gray-400 mt-1">
-                3 persistent volume claims are not attached to any pods. Consider deleting unused storage.
-              </p>
-              <p className="text-sm text-status-healthy mt-2">Potential savings: $50/month</p>
-            </div>
-          </div>
+        <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+          <DollarSign className="w-12 h-12 mb-2 opacity-50" />
+          <p className="text-sm">No recommendations yet</p>
+          <p className="text-xs mt-1">Connect clusters to analyze cost optimization opportunities</p>
         </div>
       </div>
     </div>

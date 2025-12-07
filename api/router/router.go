@@ -251,6 +251,9 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 	}
 
 	// WebSocket endpoints for real-time updates
+	// Generic WebSocket endpoint for dashboard connection
+	r.GET("/ws", handlers.DashboardWS())
+
 	ws := r.Group("/ws")
 	ws.Use(middleware.WSAuth(services.Auth))
 	{

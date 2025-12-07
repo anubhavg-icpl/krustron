@@ -17,6 +17,9 @@ import {
   Cpu,
   HardDrive,
   Box,
+  Loader2,
+  Upload,
+  FileText,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
@@ -186,8 +189,13 @@ function ClusterCard({ cluster }: { cluster: Cluster }) {
 
 // Clusters List
 function ClustersList() {
+  const navigate = useNavigate()
   const { clusters, loading, filter } = useClustersStore()
   const [searchQuery, setSearchQuery] = useState('')
+
+  const handleAddCluster = () => {
+    navigate('/clusters/new')
+  }
 
   // Filter clusters
   const filteredClusters = clusters.filter(cluster => {
@@ -208,7 +216,7 @@ function ClustersList() {
           <h1 className="text-2xl font-bold text-white">Clusters</h1>
           <p className="text-gray-400 mt-1">Manage your Kubernetes clusters</p>
         </div>
-        <button className="glass-btn-primary flex items-center gap-2">
+        <button onClick={handleAddCluster} className="glass-btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Cluster
         </button>
@@ -256,7 +264,7 @@ function ClustersList() {
               ? 'No clusters match your search criteria'
               : 'Get started by adding your first cluster'}
           </p>
-          <button className="glass-btn-primary">
+          <button onClick={handleAddCluster} className="glass-btn-primary">
             <Plus className="w-4 h-4 mr-2" />
             Add Cluster
           </button>
@@ -283,11 +291,234 @@ function ClusterDetail() {
   )
 }
 
+// Cluster Create Page
+function ClusterCreate() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [server, setServer] = useState('')
+  const [description, setDescription] = useState('')
+  const [kubeconfig, setKubeconfig] = useState('')
+  const [connectionType, setConnectionType] = useState<'kubeconfig' | 'serviceaccount'>('kubeconfig')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setKubeconfig(event.target?.result as string)
+      }
+      reader.readAsText(file)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/v1/clusters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          name,
+          server,
+          description,
+          kubeconfig: connectionType === 'kubeconfig' ? kubeconfig : undefined,
+        }),
+      })
+
+      if (response.ok) {
+        navigate('/clusters')
+      }
+    } catch (error) {
+      console.error('Failed to create cluster:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Add Cluster</h1>
+        <p className="text-gray-400 mt-1">Connect a new Kubernetes cluster</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="glass-card p-6 space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Cluster Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., production-cluster"
+            className="glass-input"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            API Server URL
+          </label>
+          <input
+            type="text"
+            value={server}
+            onChange={(e) => setServer(e.target.value)}
+            placeholder="https://kubernetes.example.com:6443"
+            className="glass-input"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Cluster description..."
+            className="glass-input min-h-[80px]"
+            rows={2}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Connection Method
+          </label>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setConnectionType('kubeconfig')}
+              className={clsx(
+                'flex-1 p-4 rounded-xl border transition-all',
+                connectionType === 'kubeconfig'
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-glass-border bg-glass-light hover:border-gray-600'
+              )}
+            >
+              <FileText className={clsx(
+                'w-6 h-6 mx-auto mb-2',
+                connectionType === 'kubeconfig' ? 'text-primary-400' : 'text-gray-400'
+              )} />
+              <div className={clsx(
+                'text-sm font-medium',
+                connectionType === 'kubeconfig' ? 'text-white' : 'text-gray-400'
+              )}>
+                Kubeconfig
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setConnectionType('serviceaccount')}
+              className={clsx(
+                'flex-1 p-4 rounded-xl border transition-all',
+                connectionType === 'serviceaccount'
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-glass-border bg-glass-light hover:border-gray-600'
+              )}
+            >
+              <Server className={clsx(
+                'w-6 h-6 mx-auto mb-2',
+                connectionType === 'serviceaccount' ? 'text-primary-400' : 'text-gray-400'
+              )} />
+              <div className={clsx(
+                'text-sm font-medium',
+                connectionType === 'serviceaccount' ? 'text-white' : 'text-gray-400'
+              )}>
+                Service Account
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {connectionType === 'kubeconfig' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Kubeconfig File
+            </label>
+            <div className="border-2 border-dashed border-glass-border rounded-xl p-6 text-center hover:border-gray-600 transition-colors">
+              <input
+                type="file"
+                accept=".yaml,.yml,.conf"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="kubeconfig-upload"
+              />
+              <label htmlFor="kubeconfig-upload" className="cursor-pointer">
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">
+                  {kubeconfig ? 'File uploaded' : 'Click to upload kubeconfig'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Supports .yaml, .yml, .conf files
+                </p>
+              </label>
+            </div>
+            {kubeconfig && (
+              <div className="mt-2 p-2 bg-glass-light rounded-lg">
+                <p className="text-xs text-status-healthy">Kubeconfig loaded successfully</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {connectionType === 'serviceaccount' && (
+          <div className="p-4 bg-glass-light rounded-xl">
+            <p className="text-sm text-gray-400">
+              To connect using a Service Account, install the Krustron agent in your cluster:
+            </p>
+            <pre className="mt-2 p-3 bg-glass-dark rounded-lg text-xs text-gray-300 overflow-x-auto">
+              kubectl apply -f https://krustron.io/agent/install.yaml
+            </pre>
+          </div>
+        )}
+
+        <div className="flex gap-4 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/clusters')}
+            className="glass-btn flex-1"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || !name || !server}
+            className="glass-btn-primary flex-1 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Add Cluster
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // Main Clusters Page with Routes
 export default function Clusters() {
   return (
     <Routes>
       <Route index element={<ClustersList />} />
+      <Route path="new" element={<ClusterCreate />} />
       <Route path=":id/*" element={<ClusterDetail />} />
     </Routes>
   )
