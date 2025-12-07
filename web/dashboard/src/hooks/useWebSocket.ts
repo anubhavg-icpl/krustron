@@ -458,7 +458,7 @@ export function usePodLogs(clusterId: string, namespace: string, podName: string
 // WebSocket Context (for sharing connection)
 // ============================================================================
 
-import { createContext, useContext, ReactNode } from 'react'
+import React, { createContext, useContext, ReactNode } from 'react'
 
 interface WebSocketContextValue extends UseWebSocketReturn {}
 
@@ -466,7 +466,7 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null)
 
 export function WebSocketProvider({ children, options }: { children: ReactNode; options?: WebSocketOptions }) {
   const ws = useWebSocket(options)
-  return <WebSocketContext.Provider value={ws}>{children}</WebSocketContext.Provider>
+  return React.createElement(WebSocketContext.Provider, { value: ws }, children)
 }
 
 export function useWebSocketContext() {

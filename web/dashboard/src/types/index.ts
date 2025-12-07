@@ -15,6 +15,7 @@ export type MessageType =
   | 'pipeline.status'
   | 'pipeline.logs'
   | 'pipeline.stage'
+  | 'pipeline.trigger'
   | 'pod.status'
   | 'pod.logs'
   | 'pod.metrics'
@@ -74,7 +75,7 @@ export interface ComponentHealth {
   message?: string
 }
 
-export type HealthStatus = 'healthy' | 'progressing' | 'degraded' | 'suspended' | 'missing' | 'unknown'
+export type HealthStatus = 'Healthy' | 'Progressing' | 'Degraded' | 'Suspended' | 'Missing' | 'Unknown'
 
 export interface ClusterMetrics {
   clusterId: string

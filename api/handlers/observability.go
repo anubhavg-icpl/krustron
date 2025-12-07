@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/anubhavg-icpl/krustron/internal/observability"
-	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/gin-gonic/gin"
 )
 

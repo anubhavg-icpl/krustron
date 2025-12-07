@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1008,16 +1009,3 @@ func sum(values []float64) float64 {
 	return total
 }
 
-type strings struct{}
-
-func (strings) Builder struct {
-	data []byte
-}
-
-func (b *strings.Builder) WriteString(s string) {
-	b.data = append(b.data, []byte(s)...)
-}
-
-func (b *strings.Builder) String() string {
-	return string(b.data)
-}

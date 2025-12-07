@@ -910,8 +910,8 @@ func (s *Service) SyncPolicies(ctx context.Context) error {
 
 // ExportPolicies exports all policies as JSON
 func (s *Service) ExportPolicies(ctx context.Context) ([]byte, error) {
-	policies := s.enforcer.GetPolicy()
-	groupingPolicies := s.enforcer.GetGroupingPolicy()
+	policies, _ := s.enforcer.GetPolicy()
+	groupingPolicies, _ := s.enforcer.GetGroupingPolicy()
 
 	export := map[string]interface{}{
 		"policies":         policies,
@@ -935,13 +935,21 @@ func (s *Service) ImportPolicies(ctx context.Context, data []byte) error {
 
 	for _, p := range imported.Policies {
 		if len(p) >= 4 {
-			s.enforcer.AddPolicy(p...)
+			params := make([]interface{}, len(p))
+			for i, v := range p {
+				params[i] = v
+			}
+			s.enforcer.AddPolicy(params...)
 		}
 	}
 
 	for _, g := range imported.GroupingPolicies {
 		if len(g) >= 2 {
-			s.enforcer.AddGroupingPolicy(g...)
+			params := make([]interface{}, len(g))
+			for i, v := range g {
+				params[i] = v
+			}
+			s.enforcer.AddGroupingPolicy(params...)
 		}
 	}
 
