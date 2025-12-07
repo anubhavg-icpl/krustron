@@ -25,6 +25,7 @@ import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { usePipelinesStore } from '@/store/useStore'
 import { Pipeline, PipelineRun, WebSocketMessage } from '@/types'
 import { showSuccessToast, showErrorToast, showInfoToast } from '@/hooks/useNotificationToasts'
+import { pipelinesApi, ApiClientError } from '@/api'
 
 // Stage Status Icon
 function StageStatusIcon({ status }: { status: string }) {
@@ -353,35 +354,22 @@ function PipelineCreate() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/v1/pipelines', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          gitRepository: gitRepo,
-          branch,
-          stages: [
-            { name: 'Build', type: 'build' },
-            { name: 'Test', type: 'test' },
-            { name: 'Deploy', type: 'deploy' },
-          ],
-        }),
+      await pipelinesApi.create({
+        name,
+        description,
+        git_repository: gitRepo,
+        branch,
+        stages: [
+          { name: 'Build', type: 'build' },
+          { name: 'Test', type: 'test' },
+          { name: 'Deploy', type: 'deploy' },
+        ],
       })
-
-      if (response.ok) {
-        showSuccessToast('Pipeline created', `${name} is ready to run`)
-        navigate('/pipelines')
-      } else {
-        const data = await response.json().catch(() => ({}))
-        showErrorToast('Failed to create pipeline', data.message || 'Please try again')
-      }
+      showSuccessToast('Pipeline created', `${name} is ready to run`)
+      navigate('/pipelines')
     } catch (error) {
-      console.error('Failed to create pipeline:', error)
-      showErrorToast('Failed to create pipeline', 'Network error. Please try again.')
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.'
+      showErrorToast('Failed to create pipeline', message)
     } finally {
       setIsSubmitting(false)
     }

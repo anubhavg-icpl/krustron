@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Sparkles, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/useStore'
+import { authApi, ApiClientError } from '@/api'
 import toast from 'react-hot-toast'
 
 export default function Login() {
@@ -23,31 +24,18 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const { access_token, refresh_token, expires_in, user } = await authApi.login({
+        email: formData.username,
+        password: formData.password,
+      })
 
-      // Mock successful login
-      const mockUser = {
-        id: 'user-123',
-        username: formData.username,
-        email: `${formData.username}@example.com`,
-        displayName: formData.username.charAt(0).toUpperCase() + formData.username.slice(1),
-        roles: ['admin'],
-        teams: ['platform'],
-        createdAt: new Date().toISOString(),
-      }
-
-      login(
-        'mock-jwt-token-' + Date.now(),
-        'mock-refresh-token-' + Date.now(),
-        mockUser,
-        3600
-      )
+      login(access_token, refresh_token, user, expires_in)
 
       toast.success('Welcome to Krustron!')
       navigate('/')
     } catch (error) {
-      toast.error('Invalid credentials')
+      const message = error instanceof ApiClientError ? error.message : 'Invalid credentials'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -82,13 +70,13 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">
-                Username
+                Email
               </label>
               <input
-                type="text"
+                type="email"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="Enter your username"
+                placeholder="Enter your email"
                 className="glass-input"
                 required
                 autoFocus

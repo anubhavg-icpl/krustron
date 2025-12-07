@@ -25,6 +25,7 @@ import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { useApplicationsStore } from '@/store/useStore'
 import { Application, WebSocketMessage } from '@/types'
 import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
+import { applicationsApi, ApiClientError } from '@/api'
 
 // Application Card Component
 function ApplicationCard({ app }: { app: Application }) {
@@ -369,38 +370,22 @@ function ApplicationCreate() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/v1/applications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      await applicationsApi.create({
+        name,
+        namespace,
+        cluster_id: cluster,
+        source: {
+          repo_url: repoUrl,
+          path,
+          target_revision: targetRevision,
         },
-        body: JSON.stringify({
-          name,
-          namespace,
-          source: {
-            repoUrl,
-            path,
-            targetRevision,
-          },
-          destination: {
-            cluster,
-            namespace,
-          },
-          syncPolicy: syncPolicy === 'automated' ? { automated: { prune: true, selfHeal: true } } : {},
-        }),
+        sync_policy: syncPolicy === 'automated' ? { automated: { prune: true, self_heal: true } } : undefined,
       })
-
-      if (response.ok) {
-        showSuccessToast('Application created', `${name} is now syncing`)
-        navigate('/applications')
-      } else {
-        const data = await response.json().catch(() => ({}))
-        showErrorToast('Failed to create application', data.message || 'Please try again')
-      }
+      showSuccessToast('Application created', `${name} is now syncing`)
+      navigate('/applications')
     } catch (error) {
-      console.error('Failed to create application:', error)
-      showErrorToast('Failed to create application', 'Network error. Please try again.')
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.'
+      showErrorToast('Failed to create application', message)
     } finally {
       setIsSubmitting(false)
     }

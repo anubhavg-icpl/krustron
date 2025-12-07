@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   AlertCircle,
   Info,
-  CheckCircle,
   XCircle,
   Server,
   Box,
@@ -18,7 +17,6 @@ import {
   DollarSign,
   Settings,
   Check,
-  Trash2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAlertsStore, useUIStore } from '@/store/useStore'

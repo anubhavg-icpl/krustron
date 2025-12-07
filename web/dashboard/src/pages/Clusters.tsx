@@ -26,6 +26,7 @@ import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { useClustersStore } from '@/store/useStore'
 import { Cluster, ClusterMetrics, WebSocketMessage } from '@/types'
 import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
+import { clustersApi, ApiClientError } from '@/api'
 
 // Cluster Card Component
 function ClusterCard({ cluster }: { cluster: Cluster }) {
@@ -318,30 +319,17 @@ function ClusterCreate() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/v1/clusters', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          name,
-          server,
-          description,
-          kubeconfig: connectionType === 'kubeconfig' ? kubeconfig : undefined,
-        }),
+      await clustersApi.create({
+        name,
+        server,
+        description,
+        kubeconfig: connectionType === 'kubeconfig' ? kubeconfig : undefined,
       })
-
-      if (response.ok) {
-        showSuccessToast('Cluster added successfully', `${name} is now being connected`)
-        navigate('/clusters')
-      } else {
-        const data = await response.json().catch(() => ({}))
-        showErrorToast('Failed to add cluster', data.message || 'Please try again')
-      }
+      showSuccessToast('Cluster added successfully', `${name} is now being connected`)
+      navigate('/clusters')
     } catch (error) {
-      console.error('Failed to create cluster:', error)
-      showErrorToast('Failed to add cluster', 'Network error. Please try again.')
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.'
+      showErrorToast('Failed to add cluster', message)
     } finally {
       setIsSubmitting(false)
     }

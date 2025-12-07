@@ -12,7 +12,6 @@ import {
   Download,
   AlertTriangle,
   Server,
-  Box,
   Cpu,
 } from 'lucide-react'
 import { clsx } from 'clsx'

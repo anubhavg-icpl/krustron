@@ -4,68 +4,34 @@
 import { useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useAlertsStore } from '@/store/useStore'
-import { Alert } from '@/types'
+import { Alert, AlertSeverity } from '@/types'
 
 // Custom toast styles for different severities
-const toastStyles = {
-  critical: {
-    style: {
-      background: 'rgba(239, 68, 68, 0.95)',
-      color: '#fff',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '12px',
-    },
-    duration: 6000,
-  },
-  high: {
-    style: {
-      background: 'rgba(249, 115, 22, 0.95)',
-      color: '#fff',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '12px',
-    },
-    duration: 5000,
-  },
-  medium: {
-    style: {
-      background: 'rgba(234, 179, 8, 0.95)',
-      color: '#000',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '12px',
-    },
-    duration: 4000,
-  },
-  low: {
-    style: {
-      background: 'rgba(59, 130, 246, 0.95)',
-      color: '#fff',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '12px',
-    },
-    duration: 4000,
-  },
-  info: {
-    style: {
-      background: 'rgba(37, 99, 235, 0.95)',
-      color: '#fff',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '12px',
-    },
-    duration: 3000,
-  },
+const getToastStyle = (severity: AlertSeverity) => {
+  const styles: Record<AlertSeverity, { background: string; color: string }> = {
+    critical: { background: 'rgba(239, 68, 68, 0.95)', color: '#fff' },
+    high: { background: 'rgba(249, 115, 22, 0.95)', color: '#fff' },
+    medium: { background: 'rgba(234, 179, 8, 0.95)', color: '#000' },
+    low: { background: 'rgba(59, 130, 246, 0.95)', color: '#fff' },
+    info: { background: 'rgba(37, 99, 235, 0.95)', color: '#fff' },
+  }
+  return {
+    ...styles[severity],
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '12px',
+  }
 }
 
-const severityIcons = {
-  critical: '🚨',
-  high: '⚠️',
-  medium: '⚡',
-  low: 'ℹ️',
-  info: '💡',
+const getDuration = (severity: AlertSeverity): number => {
+  const durations: Record<AlertSeverity, number> = {
+    critical: 6000,
+    high: 5000,
+    medium: 4000,
+    low: 4000,
+    info: 3000,
+  }
+  return durations[severity]
 }
 
 export function useNotificationToasts() {
@@ -79,25 +45,10 @@ export function useNotificationToasts() {
 
     // Show toast for each new alert
     newAlerts.forEach(alert => {
-      const style = toastStyles[alert.severity] || toastStyles.info
-      const icon = severityIcons[alert.severity] || '🔔'
-
-      toast(
-        (t) => (
-          <div
-            className="flex items-start gap-3 cursor-pointer"
-            onClick={() => toast.dismiss(t.id)}
-          >
-            <span className="text-xl">{icon}</span>
-            <div className="flex-1">
-              <p className="font-semibold text-sm">{alert.title}</p>
-              <p className="text-xs opacity-90 mt-0.5 line-clamp-2">{alert.message}</p>
-              <p className="text-xs opacity-75 mt-1">{alert.source} • {alert.type}</p>
-            </div>
-          </div>
-        ),
-        style
-      )
+      toast(alert.title + (alert.message ? ': ' + alert.message : ''), {
+        duration: getDuration(alert.severity),
+        style: getToastStyle(alert.severity),
+      })
     })
 
     // Update ref for next comparison
@@ -107,95 +58,53 @@ export function useNotificationToasts() {
 
 // Utility functions for showing toasts from anywhere
 export const showSuccessToast = (message: string, description?: string) => {
-  toast.success(
-    (t) => (
-      <div className="flex items-start gap-2" onClick={() => toast.dismiss(t.id)}>
-        <div>
-          <p className="font-semibold text-sm">{message}</p>
-          {description && <p className="text-xs opacity-75 mt-0.5">{description}</p>}
-        </div>
-      </div>
-    ),
-    {
-      duration: 4000,
-      style: {
-        background: 'rgba(34, 197, 94, 0.95)',
-        color: '#fff',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '12px',
-      },
-    }
-  )
+  toast.success(description ? `${message}: ${description}` : message, {
+    duration: 4000,
+    style: {
+      background: 'rgba(34, 197, 94, 0.95)',
+      color: '#fff',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '12px',
+    },
+  })
 }
 
 export const showErrorToast = (message: string, description?: string) => {
-  toast.error(
-    (t) => (
-      <div className="flex items-start gap-2" onClick={() => toast.dismiss(t.id)}>
-        <div>
-          <p className="font-semibold text-sm">{message}</p>
-          {description && <p className="text-xs opacity-75 mt-0.5">{description}</p>}
-        </div>
-      </div>
-    ),
-    {
-      duration: 5000,
-      style: {
-        background: 'rgba(239, 68, 68, 0.95)',
-        color: '#fff',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '12px',
-      },
-    }
-  )
+  toast.error(description ? `${message}: ${description}` : message, {
+    duration: 5000,
+    style: {
+      background: 'rgba(239, 68, 68, 0.95)',
+      color: '#fff',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '12px',
+    },
+  })
 }
 
 export const showInfoToast = (message: string, description?: string) => {
-  toast(
-    (t) => (
-      <div className="flex items-start gap-2" onClick={() => toast.dismiss(t.id)}>
-        <div>
-          <p className="font-semibold text-sm">{message}</p>
-          {description && <p className="text-xs opacity-75 mt-0.5">{description}</p>}
-        </div>
-      </div>
-    ),
-    {
-      duration: 4000,
-      icon: 'ℹ️',
-      style: {
-        background: 'rgba(59, 130, 246, 0.95)',
-        color: '#fff',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '12px',
-      },
-    }
-  )
+  toast(description ? `${message}: ${description}` : message, {
+    duration: 4000,
+    style: {
+      background: 'rgba(59, 130, 246, 0.95)',
+      color: '#fff',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '12px',
+    },
+  })
 }
 
 export const showWarningToast = (message: string, description?: string) => {
-  toast(
-    (t) => (
-      <div className="flex items-start gap-2" onClick={() => toast.dismiss(t.id)}>
-        <div>
-          <p className="font-semibold text-sm">{message}</p>
-          {description && <p className="text-xs opacity-75 mt-0.5">{description}</p>}
-        </div>
-      </div>
-    ),
-    {
-      duration: 4000,
-      icon: '⚠️',
-      style: {
-        background: 'rgba(234, 179, 8, 0.95)',
-        color: '#000',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '12px',
-      },
-    }
-  )
+  toast(description ? `${message}: ${description}` : message, {
+    duration: 4000,
+    style: {
+      background: 'rgba(234, 179, 8, 0.95)',
+      color: '#000',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '12px',
+    },
+  })
 }
