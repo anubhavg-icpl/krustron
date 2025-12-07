@@ -13,7 +13,6 @@ import {
   Activity,
   Cpu,
   HardDrive,
-  Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -29,8 +28,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from 'recharts'
 import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
@@ -174,8 +171,8 @@ export default function Dashboard() {
   const { alerts, unreadCount } = useAlertsStore()
 
   // Real-time metrics state
-  const [clusterMetrics, setClusterMetrics] = useState<ClusterMetrics[]>([])
-  const [recentPipelineRuns, setRecentPipelineRuns] = useState<PipelineRun[]>([])
+  const [, setClusterMetrics] = useState<ClusterMetrics[]>([])
+  const [, setRecentPipelineRuns] = useState<PipelineRun[]>([])
   const [cpuHistory, setCpuHistory] = useState<{ time: string; value: number }[]>([])
 
   // Subscribe to real-time updates

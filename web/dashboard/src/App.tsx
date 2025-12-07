@@ -26,7 +26,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { isAuthenticated, token } = useAuthStore()
+  const { token } = useAuthStore()
 
   // WebSocket URL with auth token
   const wsUrl = token

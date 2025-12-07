@@ -9,9 +9,7 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowUpRight,
-  Calendar,
   Download,
-  Settings,
   AlertTriangle,
   Server,
   Box,
@@ -31,7 +29,6 @@ import {
   Cell,
   BarChart,
   Bar,
-  Legend,
 } from 'recharts'
 
 // Mock data

@@ -8,7 +8,6 @@ import {
   Box,
   Plus,
   Search,
-  Filter,
   MoreVertical,
   RefreshCw,
   Trash2,
@@ -195,7 +194,7 @@ function ApplicationCard({ app }: { app: Application }) {
 
 // Applications List
 function ApplicationsList() {
-  const { applications, loading, filter, setFilter } = useApplicationsStore()
+  const { applications, loading } = useApplicationsStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string[]>([])
 

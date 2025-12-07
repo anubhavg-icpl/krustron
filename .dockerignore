@@ -1,0 +1,66 @@
+# Krustron Docker Ignore
+# Author: Anubhav Gain <anubhavg@infopercept.com>
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+/build/
+/bin/
+/dist/
+
+# Test files
+*_test.go
+coverage/
+*.coverprofile
+coverage.txt
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Local config
+.env
+.env.*
+*.local
+config.local.yaml
+config.*.yaml
+!config.yaml
+
+# Node modules (frontend builds in container)
+web/dashboard/node_modules/
+web/dashboard/dist/
+web/dashboard/.vite/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Claude Code
+.claude/
+
+# Helm charts (not needed in container)
+charts/
+
+# Kubernetes manifests
+k8s/
+*.kubeconfig

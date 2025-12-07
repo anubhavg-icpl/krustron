@@ -1,0 +1,153 @@
+# Krustron - Docker Compose Configuration
+# Author: Anubhav Gain <anubhavg@infopercept.com>
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Krustron API Server
+  # ============================================================================
+  krustron-api:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: krustron-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics
+    environment:
+      - KRUSTRON_SERVER_HOST=0.0.0.0
+      - KRUSTRON_SERVER_PORT=8080
+      - KRUSTRON_SERVER_MODE=release
+      - KRUSTRON_DATABASE_HOST=postgres
+      - KRUSTRON_DATABASE_PORT=5432
+      - KRUSTRON_DATABASE_NAME=krustron
+      - KRUSTRON_DATABASE_USER=krustron
+      - KRUSTRON_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-krustron}
+      - KRUSTRON_REDIS_HOST=redis
+      - KRUSTRON_REDIS_PORT=6379
+      - KRUSTRON_AUTH_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - KRUSTRON_LOGGER_LEVEL=info
+      - KRUSTRON_LOGGER_FORMAT=json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - kubeconfig:/root/.kube:ro
+    networks:
+      - krustron-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================================
+  # Krustron Dashboard (Frontend)
+  # ============================================================================
+  krustron-dashboard:
+    build:
+      context: ./web/dashboard
+      dockerfile: Containerfile
+    container_name: krustron-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - krustron-api
+    networks:
+      - krustron-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: docker.io/postgres:16-alpine
+    container_name: krustron-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=krustron
+      - POSTGRES_USER=krustron
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-krustron}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - krustron-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krustron -d krustron"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # Redis Cache
+  # ============================================================================
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: krustron-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - krustron-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # NATS (Message Queue) - Optional
+  # ============================================================================
+  nats:
+    image: docker.io/nats:alpine
+    container_name: krustron-nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222"   # Client connections
+      - "8222:8222"   # HTTP monitoring
+    command: ["--http_port", "8222", "--jetstream"]
+    networks:
+      - krustron-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  krustron-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  kubeconfig:
+    driver: local

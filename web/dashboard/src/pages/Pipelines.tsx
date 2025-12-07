@@ -10,7 +10,6 @@ import {
   Search,
   Play,
   Pause,
-  RotateCcw,
   MoreVertical,
   Trash2,
   Settings,
@@ -24,7 +23,7 @@ import {
 import { clsx } from 'clsx'
 import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { usePipelinesStore } from '@/store/useStore'
-import { Pipeline, PipelineRun, StageRun, WebSocketMessage } from '@/types'
+import { Pipeline, PipelineRun, WebSocketMessage } from '@/types'
 
 // Stage Status Icon
 function StageStatusIcon({ status }: { status: string }) {

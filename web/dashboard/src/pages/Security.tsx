@@ -7,15 +7,10 @@ import { motion } from 'framer-motion'
 import {
   Shield,
   Search,
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   Eye,
   Download,
   RefreshCw,
   Filter,
-  ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -119,7 +114,6 @@ function VulnerabilityCard({
 // Security Overview
 function SecurityOverview() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [severityFilter, setSeverityFilter] = useState<string[]>([])
 
   const totalVulnerabilities = severityData.reduce((acc, item) => acc + item.value, 0)
 

@@ -316,7 +316,7 @@ interface AlertsStore {
 
 export const useAlertsStore = create<AlertsStore>()(
   devtools(
-    (set, get) => ({
+    (set, _get) => ({
       alerts: [],
       unreadCount: 0,
       loading: false,

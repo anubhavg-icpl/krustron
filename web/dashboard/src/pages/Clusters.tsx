@@ -2,7 +2,7 @@
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
 import { useEffect, useState } from 'react'
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Server,
@@ -17,24 +17,11 @@ import {
   Cpu,
   HardDrive,
   Box,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Activity,
 } from 'lucide-react'
 import { clsx } from 'clsx'
-import { useWebSocketContext, useClusterEvents } from '@/hooks/useWebSocket'
+import { useWebSocketContext } from '@/hooks/useWebSocket'
 import { useClustersStore } from '@/store/useStore'
 import { Cluster, ClusterMetrics, WebSocketMessage } from '@/types'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
 
 // Cluster Card Component
 function ClusterCard({ cluster }: { cluster: Cluster }) {
@@ -199,7 +186,7 @@ function ClusterCard({ cluster }: { cluster: Cluster }) {
 
 // Clusters List
 function ClustersList() {
-  const { clusters, loading, filter, setFilter } = useClustersStore()
+  const { clusters, loading, filter } = useClustersStore()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Filter clusters
