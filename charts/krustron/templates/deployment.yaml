@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "krustron.fullname" . }}
+  labels:
+    {{- include "krustron.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "krustron.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "krustron.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "krustron.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - serve
+            - --config=/app/config/config.yaml
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.server.grpcPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: KRUSTRON_SERVER_HOST
+              value: "{{ .Values.server.host }}"
+            - name: KRUSTRON_SERVER_PORT
+              value: "{{ .Values.server.port }}"
+            - name: KRUSTRON_SERVER_MODE
+              value: "{{ .Values.server.mode }}"
+            - name: KRUSTRON_DATABASE_HOST
+              value: "{{ .Values.database.host | default (printf "%s-postgresql" .Release.Name) }}"
+            - name: KRUSTRON_DATABASE_PORT
+              value: "{{ .Values.database.port }}"
+            - name: KRUSTRON_DATABASE_USER
+              value: "{{ .Values.database.user }}"
+            - name: KRUSTRON_DATABASE_DATABASE
+              value: "{{ .Values.database.database }}"
+            - name: KRUSTRON_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret | default (printf "%s-secrets" (include "krustron.fullname" .)) }}
+                  key: database-password
+            - name: KRUSTRON_REDIS_HOST
+              value: "{{ .Values.redis.host | default (printf "%s-redis-master" .Release.Name) }}"
+            - name: KRUSTRON_REDIS_PORT
+              value: "{{ .Values.redis.port }}"
+            - name: KRUSTRON_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.existingSecret | default (printf "%s-secrets" (include "krustron.fullname" .)) }}
+                  key: redis-password
+                  optional: true
+            - name: KRUSTRON_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret | default (printf "%s-secrets" (include "krustron.fullname" .)) }}
+                  key: jwt-secret
+            - name: KRUSTRON_LOGGER_LEVEL
+              value: "{{ .Values.logger.level }}"
+            - name: KRUSTRON_LOGGER_FORMAT
+              value: "{{ .Values.logger.format }}"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "krustron.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
