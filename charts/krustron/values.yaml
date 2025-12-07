@@ -1,0 +1,212 @@
+# Krustron Helm Values
+# Author: Anubhav Gain <anubhavg@infopercept.com>
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Image settings
+image:
+  registry: ghcr.io
+  repository: anubhavg-icpl/krustron
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Replica count
+replicaCount: 1
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod settings
+podAnnotations: {}
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# Resources
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Service settings
+service:
+  type: ClusterIP
+  port: 8080
+  grpcPort: 50051
+  annotations: {}
+
+# Ingress settings
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: krustron.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: krustron-tls
+    #   hosts:
+    #     - krustron.local
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  grpcPort: 50051
+  mode: "release"
+  corsOrigins:
+    - "*"
+
+# Database configuration
+database:
+  host: ""  # Set if using external DB
+  port: 5432
+  user: "krustron"
+  password: ""  # Use secret instead
+  database: "krustron"
+  sslMode: "disable"
+  existingSecret: ""  # Name of existing secret with password
+
+# Redis configuration
+redis:
+  host: ""  # Set if using external Redis
+  port: 6379
+  password: ""  # Use secret instead
+  db: 0
+  existingSecret: ""
+
+# Authentication configuration
+auth:
+  jwtSecret: ""  # Use secret instead
+  jwtExpiration: "24h"
+  refreshExpiration: "168h"
+  existingSecret: ""
+  oidc:
+    enabled: false
+    issuer: ""
+    clientId: ""
+    clientSecret: ""  # Use secret instead
+    redirectUrl: ""
+
+# GitOps configuration
+gitops:
+  enabled: true
+  provider: "argocd"
+  argocd:
+    serverUrl: ""
+    authToken: ""  # Use secret instead
+    insecure: false
+    namespace: "argocd"
+
+# Observability configuration
+observability:
+  metrics:
+    enabled: true
+    path: "/metrics"
+  tracing:
+    enabled: false
+    provider: "otel"
+    endpoint: ""
+  prometheus:
+    url: ""
+  grafana:
+    url: ""
+
+# Security configuration
+security:
+  trivyEnabled: true
+  trivyServerUrl: ""
+  opaEnabled: true
+  opaServerUrl: ""
+  blockOnCritical: true
+
+# AI configuration
+ai:
+  enabled: false
+  provider: "ollama"
+  endpoint: ""
+  model: "llama3"
+  apiKey: ""  # Use secret instead
+
+# Logger configuration
+logger:
+  level: "info"
+  format: "json"
+
+# PostgreSQL subchart (optional)
+postgresql:
+  enabled: true
+  auth:
+    username: krustron
+    database: krustron
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+# Redis subchart (optional)
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: ""
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# NATS subchart (optional)
+nats:
+  enabled: true
+  cluster:
+    enabled: false
+
+# Prometheus ServiceMonitor
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  labels: {}
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
