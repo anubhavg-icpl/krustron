@@ -21,6 +21,8 @@ import {
   Menu,
   X,
   Sparkles,
+  Anchor,
+  ScrollText,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore, useUIStore, useAlertsStore } from '@/store/useStore'
@@ -34,8 +36,10 @@ const navItems = [
   { path: '/clusters', icon: Server, label: 'Clusters' },
   { path: '/applications', icon: Box, label: 'Applications' },
   { path: '/pipelines', icon: GitBranch, label: 'Pipelines' },
+  { path: '/helm', icon: Anchor, label: 'Helm' },
   { path: '/security', icon: Shield, label: 'Security' },
   { path: '/cost', icon: DollarSign, label: 'Cost' },
+  { path: '/audit', icon: ScrollText, label: 'Audit' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ]
 

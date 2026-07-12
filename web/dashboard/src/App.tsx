@@ -15,6 +15,8 @@ import Pipelines from '@/pages/Pipelines'
 import Security from '@/pages/Security'
 import Cost from '@/pages/Cost'
 import Settings from '@/pages/Settings'
+import Helm from '@/pages/Helm'
+import Audit from '@/pages/Audit'
 import Login from '@/pages/Login'
 
 // ============================================================================
@@ -109,8 +111,10 @@ function App() {
             <Route path="clusters/*" element={<Clusters />} />
             <Route path="applications/*" element={<Applications />} />
             <Route path="pipelines/*" element={<Pipelines />} />
+            <Route path="helm/*" element={<Helm />} />
             <Route path="security/*" element={<Security />} />
             <Route path="cost/*" element={<Cost />} />
+            <Route path="audit/*" element={<Audit />} />
             <Route path="settings/*" element={<Settings />} />
           </Route>
 
