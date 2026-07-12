@@ -25,6 +25,7 @@ package main
 
 import (
 	"context"
+	"time"
 	"fmt"
 	"net/http"
 	"os"
@@ -220,6 +221,22 @@ func runServer(cmd *cobra.Command, args []string) error {
 		logger.Warn("Failed to create cost service", zap.Error(cerr))
 	} else {
 		costService = svc
+		costService.SetKubeManager(kubeManager)
+		// Sample cluster usage every 15 minutes so the cost tables accumulate
+		// real data (GetCostSummary/ListCostAllocations otherwise return zeros).
+		go func() {
+			ticker := time.NewTicker(15 * time.Minute)
+			defer ticker.Stop()
+			costService.IngestUsage(ctx) // one immediate sample at startup
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					costService.IngestUsage(ctx)
+				}
+			}
+		}()
 	}
 
 	// Real-time hub: broadcasts cluster/app/pipeline events to dashboard clients.
