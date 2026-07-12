@@ -88,6 +88,23 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
   const { subscribe, send, isConnected } = useWebSocketContext()
   const removePipeline = usePipelinesStore((s) => s.removePipeline)
   const [deleting, setDeleting] = useState(false)
+  const [toggling, setToggling] = useState(false)
+
+  const handleToggleActive = async () => {
+    setMenuOpen(false)
+    const next = !pipeline.isActive
+    setToggling(true)
+    try {
+      await pipelinesApi.setActive(pipeline.id, next)
+      showSuccessToast(next ? 'Pipeline enabled' : 'Pipeline disabled', pipeline.name)
+      // Optimistic: reflect locally. A full refetch on next list load reconciles.
+      pipeline.isActive = next
+    } catch (e) {
+      showErrorToast('Toggle failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setToggling(false)
+    }
+  }
 
   const handleDelete = async () => {
     setMenuOpen(false)
@@ -194,9 +211,13 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                     <Settings className="w-4 h-4" />
                     Settings
                   </button>
-                  <button className="dropdown-item flex items-center gap-2 w-full">
-                    <Pause className="w-4 h-4" />
-                    Disable
+                  <button
+                    onClick={handleToggleActive}
+                    disabled={toggling}
+                    className="dropdown-item flex items-center gap-2 w-full disabled:opacity-50"
+                  >
+                    {pipeline.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    {pipeline.isActive ? 'Disable' : 'Enable'}
                   </button>
                   <hr className="border-glass-border my-1" />
                   <button

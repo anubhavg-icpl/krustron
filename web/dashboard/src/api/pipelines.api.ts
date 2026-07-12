@@ -27,6 +27,7 @@ export interface UpdatePipelineRequest {
     name: string
     type: string
   }>
+  is_active?: boolean
 }
 
 export interface ListOptions {
@@ -64,6 +65,12 @@ export const pipelinesApi = {
 
   delete: async (id: string) => {
     return api.delete<{ message: string }>(`/pipelines/${id}`)
+  },
+
+  setActive: async (id: string, active: boolean) => {
+    // The backend UpdateRequest carries IsActive *bool; toggling is_active
+    // enables/disables the pipeline (Trigger refuses when inactive).
+    await api.put(`/pipelines/${id}`, { is_active: active })
   },
 
   trigger: async (id: string, parameters?: Record<string, string>) => {

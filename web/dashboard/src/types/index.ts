@@ -215,6 +215,7 @@ export interface Pipeline {
   runCount: number
   successCount: number
   failureCount: number
+  isActive: boolean
   createdAt: string
   updatedAt: string
 }
