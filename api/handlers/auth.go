@@ -235,6 +235,54 @@ func RevokeSession(svc *auth.Service) gin.HandlerFunc {
 	}
 }
 
+// Setup2FA generates a TOTP secret + otpauth URL for enrollment.
+func Setup2FA(svc *auth.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		setup, err := svc.Setup2FA(c.Request.Context(), userID.(string))
+		if err != nil {
+			handleError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": setup})
+	}
+}
+
+// Verify2FA confirms a TOTP code and enables two-factor auth.
+func Verify2FA(svc *auth.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var req struct {
+			Code string `json:"code" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, errors.BadRequest("code is required").ToResponse(getRequestID(c)))
+			return
+		}
+		if err := svc.Verify2FA(c.Request.Context(), userID.(string), req.Code); err != nil {
+			handleError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "two-factor authentication enabled"})
+	}
+}
+
+// Disable2FA turns off two-factor auth (requires the current code).
+func Disable2FA(svc *auth.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var req struct {
+			Code string `json:"code"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		if err := svc.Disable2FA(c.Request.Context(), userID.(string), req.Code); err != nil {
+			handleError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "two-factor authentication disabled"})
+	}
+}
+
 // ChangePassword changes the user's password
 func ChangePassword(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {

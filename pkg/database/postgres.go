@@ -128,6 +128,10 @@ func (db *PostgresDB) Migrate(ctx context.Context) error {
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 		)`,
 
+		// TOTP 2FA columns (idempotent)
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false`,
+
 		// Clusters table
 		`CREATE TABLE IF NOT EXISTS clusters (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

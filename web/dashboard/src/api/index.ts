@@ -5,7 +5,7 @@ export { default as api, ApiClientError } from './client'
 export type { ApiResponse, ApiError, RequestConfig } from './client'
 
 export { default as authApi, mapBackendUser } from './auth.api'
-export type { LoginRequest, LoginResponse, BackendUser, RegisterRequest, SessionInfo } from './auth.api'
+export type { LoginRequest, LoginResponse, BackendUser, RegisterRequest, SessionInfo, TwoFactorSetup } from './auth.api'
 
 export { default as clustersApi } from './clusters.api'
 export type { CreateClusterRequest, UpdateClusterRequest } from './clusters.api'

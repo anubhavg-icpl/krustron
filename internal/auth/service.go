@@ -21,6 +21,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -76,16 +77,18 @@ func NewService(db *database.PostgresDB, cache *cache.RedisCache, cfg *config.Au
 
 // User represents a user
 type User struct {
-	ID          string     `json:"id" db:"id"`
-	Email       string     `json:"email" db:"email"`
-	Name        string     `json:"name" db:"name"`
-	AvatarURL   string     `json:"avatar_url" db:"avatar_url"`
-	Provider    string     `json:"provider" db:"provider"`
-	Role        string     `json:"role" db:"role"`
-	IsActive    bool       `json:"is_active" db:"is_active"`
-	LastLoginAt *time.Time `json:"last_login_at" db:"last_login_at"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	ID           string     `json:"id" db:"id"`
+	Email        string     `json:"email" db:"email"`
+	Name         string     `json:"name" db:"name"`
+	AvatarURL    string     `json:"avatar_url" db:"avatar_url"`
+	Provider     string     `json:"provider" db:"provider"`
+	Role         string     `json:"role" db:"role"`
+	IsActive     bool       `json:"is_active" db:"is_active"`
+	TOTPEnabled  bool       `json:"totp_enabled" db:"totp_enabled"`
+	TOTPSecret   string     `json:"-" db:"totp_secret"`
+	LastLoginAt  *time.Time `json:"last_login_at" db:"last_login_at"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // Claims represents JWT claims
@@ -103,6 +106,7 @@ type Claims struct {
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+	TOTPCode string `json:"totp_code"`
 }
 
 // LoginResponse contains login result
@@ -133,14 +137,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	query := `
 		SELECT id, email, password_hash, name, avatar_url, provider, role, is_active,
-		       last_login_at, created_at, updated_at
+		       totp_enabled, totp_secret, last_login_at, created_at, updated_at
 		FROM users WHERE email = $1 AND provider = 'local'
 	`
 
 	if err := s.db.QueryRowContext(ctx, query, req.Email).Scan(
 		&user.ID, &user.Email, &passwordHash, &user.Name, &user.AvatarURL,
-		&user.Provider, &user.Role, &user.IsActive, &user.LastLoginAt,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.Provider, &user.Role, &user.IsActive, &user.TOTPEnabled, &user.TOTPSecret,
+		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.Unauthorized("invalid email or password")
@@ -154,6 +158,13 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
 		return nil, errors.Unauthorized("invalid email or password")
+	}
+
+	// If 2FA is enabled, require a valid TOTP code before issuing tokens.
+	if user.TOTPEnabled && user.TOTPSecret != "" {
+		if req.TOTPCode == "" || !totp.Validate(req.TOTPCode, user.TOTPSecret) {
+			return nil, errors.Unauthorized("invalid or missing two-factor code")
+		}
 	}
 
 	return s.generateTokens(ctx, &user)
@@ -539,6 +550,77 @@ func (s *Service) UpdateUser(ctx context.Context, id string, req *UpdateUserRequ
 
 // AuthConfig returns the auth configuration (handlers use it for cookie mode).
 func (s *Service) AuthConfig() *config.AuthConfig { return s.config }
+
+// TwoFactorSetup response for enrollment.
+type TwoFactorSetup struct {
+	Secret    string `json:"secret"`
+	OTPAuthURL string `json:"otpauth_url"`
+	QRCodeURL string `json:"qr_code_url"`
+}
+
+// Setup2FA generates a new TOTP secret for the user (not yet enabled) and
+// returns the otpauth URI + a QR data URL for the authenticator app.
+func (s *Service) Setup2FA(ctx context.Context, userID string) (*TwoFactorSetup, error) {
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Krustron", AccountName: user.Email})
+	if err != nil {
+		return nil, errors.InternalWrap(err, "failed to generate TOTP key")
+	}
+	// Persist the secret but keep totp_enabled=false until Verify2FA succeeds.
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET totp_secret = $2, updated_at = NOW() WHERE id = $1",
+		userID, key.Secret()); err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to store TOTP secret")
+	}
+	return &TwoFactorSetup{Secret: key.Secret(), OTPAuthURL: key.URL(), QRCodeURL: key.URL()}, nil
+}
+
+// Verify2FA confirms a TOTP code against the stored secret and enables 2FA.
+func (s *Service) Verify2FA(ctx context.Context, userID, code string) error {
+	var secret string
+	var enabled bool
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT totp_secret, totp_enabled FROM users WHERE id = $1", userID,
+	).Scan(&secret, &enabled); err != nil {
+		return errors.DatabaseWrap(err, "failed to read TOTP state")
+	}
+	if secret == "" {
+		return errors.BadRequest("set up two-factor authentication first")
+	}
+	if enabled {
+		return errors.BadRequest("two-factor authentication is already enabled")
+	}
+	if !totp.Validate(code, secret) {
+		return errors.Unauthorized("invalid two-factor code")
+	}
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET totp_enabled = true, updated_at = NOW() WHERE id = $1", userID); err != nil {
+		return errors.DatabaseWrap(err, "failed to enable TOTP")
+	}
+	logger.Info("2FA enabled", zap.String("user_id", userID))
+	return nil
+}
+
+// Disable2FA turns off 2FA and clears the secret.
+func (s *Service) Disable2FA(ctx context.Context, userID, code string) error {
+	var secret string
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT totp_secret FROM users WHERE id = $1", userID).Scan(&secret); err != nil {
+		return errors.DatabaseWrap(err, "failed to read TOTP state")
+	}
+	if secret != "" && code != "" && !totp.Validate(code, secret) {
+		return errors.Unauthorized("invalid two-factor code")
+	}
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET totp_enabled = false, totp_secret = NULL, updated_at = NOW() WHERE id = $1",
+		userID); err != nil {
+		return errors.DatabaseWrap(err, "failed to disable TOTP")
+	}
+	return nil
+}
 
 // Logout invalidates user session
 func (s *Service) Logout(ctx context.Context, userID, jti string) error {
