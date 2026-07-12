@@ -700,10 +700,17 @@ func (s *Service) GetDeployments(ctx context.Context, clusterID, namespace strin
 
 	result := make([]DeploymentInfo, len(deployments.Items))
 	for i, dep := range deployments.Items {
+		// Spec.Replicas is a pointer and is nil for deployments created without
+		// an explicit replica count (defaults to 1 server-side) — dereferencing
+		// blindly panics on any such Deployment.
+		replicas := int32(1)
+		if dep.Spec.Replicas != nil {
+			replicas = *dep.Spec.Replicas
+		}
 		result[i] = DeploymentInfo{
 			Name:            dep.Name,
 			Namespace:       dep.Namespace,
-			Replicas:        *dep.Spec.Replicas,
+			Replicas:        replicas,
 			ReadyReplicas:   dep.Status.ReadyReplicas,
 			UpdatedReplicas: dep.Status.UpdatedReplicas,
 			Strategy:        string(dep.Spec.Strategy.Type),

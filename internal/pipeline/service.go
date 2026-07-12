@@ -370,9 +370,25 @@ func (s *Service) Trigger(ctx context.Context, id string, req *TriggerRequest) (
 		return nil, errors.BadRequest("pipeline is not active")
 	}
 
-	// Get next run number
+	// Compute run_number and insert inside one transaction with a per-pipeline
+	// row lock. Previously SELECT MAX(run_number)+1 ran in its own statement
+	// (its Scan error silently swallowed) and the INSERT ran separately, so two
+	// concurrent triggers both computed N and collided.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to begin transaction")
+	}
+	defer tx.Rollback() // no-op after Commit
+
+	var lockedID string
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM pipelines WHERE id = $1 FOR UPDATE", id).Scan(&lockedID); err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to lock pipeline")
+	}
+
 	var runNumber int
-	s.db.QueryRowContext(ctx, "SELECT COALESCE(MAX(run_number), 0) + 1 FROM pipeline_runs WHERE pipeline_id = $1", id).Scan(&runNumber)
+	if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(run_number), 0) + 1 FROM pipeline_runs WHERE pipeline_id = $1", id).Scan(&runNumber); err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to compute run number")
+	}
 
 	// Merge variables
 	variables := make(map[string]string)
@@ -398,10 +414,13 @@ func (s *Service) Trigger(ctx context.Context, id string, req *TriggerRequest) (
 	`
 
 	var run PipelineRun
-	if err := s.db.QueryRowContext(ctx, query,
+	if err := tx.QueryRowContext(ctx, query,
 		id, runNumber, triggerInfo, stagesStatus, variablesJSON, now, req.TriggeredBy,
 	).Scan(&run.ID, &run.CreatedAt); err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to create pipeline run")
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to commit pipeline run")
 	}
 
 	run.PipelineID = id

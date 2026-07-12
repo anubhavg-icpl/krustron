@@ -988,7 +988,7 @@ func (s *Service) exportToCSV(report *CostReport) ([]byte, error) {
 		sb.WriteString(fmt.Sprintf("%s,%s,%.2f,%.2f%%\n", b.Category, b.Name, b.Cost, b.Percentage))
 	}
 
-	sb.WriteString(fmt.Sprintf("\nTotal,,%%.2f,100%%\n", report.TotalCost))
+	sb.WriteString(fmt.Sprintf("\nTotal,,%.2f,100%%\n", report.TotalCost))
 
 	return []byte(sb.String()), nil
 }
