@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/anubhavg-icpl/krustron/internal/auth"
+	"github.com/anubhavg-icpl/krustron/internal/rbac"
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -98,7 +99,33 @@ func WSAuth(authService *auth.Service) gin.HandlerFunc {
 	}
 }
 
-// RequireRole checks if user has required role(s)
+// RBACEnforce consults the Casbin-backed RBAC service to decide whether the
+// caller's JWT role may perform `action` on `resource`. Degrades to deny when
+// the RBAC service is unavailable (nil) so a missing enforcer never widens
+// access. Admin always passes.
+func RBACEnforce(rbacSvc *rbac.Service, resource, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("user_role")
+		roleStr, _ := role.(string)
+
+		if roleStr == "admin" {
+			c.Next()
+			return
+		}
+
+		if rbacSvc == nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, errors.Forbidden("insufficient permissions (rbac unavailable)").ToResponse(getRequestID(c)))
+			return
+		}
+
+		allowed, err := rbacSvc.AuthorizeRole(c.Request.Context(), roleStr, resource, action)
+		if err != nil || !allowed {
+			c.AbortWithStatusJSON(http.StatusForbidden, errors.Forbidden("permission denied: "+action+" "+resource).ToResponse(getRequestID(c)))
+			return
+		}
+		c.Next()
+	}
+}
 func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("user_role")

@@ -9,6 +9,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/api/handlers"
 	"github.com/anubhavg-icpl/krustron/api/middleware"
 	"github.com/anubhavg-icpl/krustron/internal/cost"
+	"github.com/anubhavg-icpl/krustron/internal/rbac"
 	"github.com/anubhavg-icpl/krustron/internal/auth"
 	"github.com/anubhavg-icpl/krustron/internal/cluster"
 	"github.com/anubhavg-icpl/krustron/internal/gitops"
@@ -40,6 +41,7 @@ type Services struct {
 	Observability *observability.Service
 	Hub           *websocket.Hub
 	Cost          *cost.Service
+	RBAC          *rbac.Service
 }
 
 // New creates a new Gin router
@@ -174,10 +176,10 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 			{
 				appRoutes.GET("", handlers.ListApplications(services.GitOps))
 				appRoutes.GET("/:id", handlers.GetApplication(services.GitOps))
-				appRoutes.POST("", handlers.CreateApplication(services.GitOps))
-				appRoutes.PUT("/:id", handlers.UpdateApplication(services.GitOps))
+				appRoutes.POST("", middleware.RBACEnforce(services.RBAC, "application", "create"), handlers.CreateApplication(services.GitOps))
+				appRoutes.PUT("/:id", middleware.RBACEnforce(services.RBAC, "application", "update"), handlers.UpdateApplication(services.GitOps))
 				appRoutes.DELETE("/:id", middleware.RequireRole("admin"), handlers.DeleteApplication(services.GitOps))
-				appRoutes.POST("/:id/sync", handlers.SyncApplication(services.GitOps))
+				appRoutes.POST("/:id/sync", middleware.RBACEnforce(services.RBAC, "application", "deploy"), handlers.SyncApplication(services.GitOps))
 				appRoutes.GET("/:id/status", handlers.GetApplicationStatus(services.GitOps))
 				appRoutes.GET("/:id/resources", handlers.GetApplicationResources(services.GitOps))
 				appRoutes.GET("/:id/events", handlers.GetApplicationEvents(services.GitOps))
@@ -190,10 +192,10 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 			{
 				pipelineRoutes.GET("", handlers.ListPipelines(services.Pipeline))
 				pipelineRoutes.GET("/:id", handlers.GetPipeline(services.Pipeline))
-				pipelineRoutes.POST("", handlers.CreatePipeline(services.Pipeline))
-				pipelineRoutes.PUT("/:id", handlers.UpdatePipeline(services.Pipeline))
+				pipelineRoutes.POST("", middleware.RBACEnforce(services.RBAC, "pipeline", "create"), handlers.CreatePipeline(services.Pipeline))
+				pipelineRoutes.PUT("/:id", middleware.RBACEnforce(services.RBAC, "pipeline", "update"), handlers.UpdatePipeline(services.Pipeline))
 				pipelineRoutes.DELETE("/:id", middleware.RequireRole("admin"), handlers.DeletePipeline(services.Pipeline))
-				pipelineRoutes.POST("/:id/trigger", handlers.TriggerPipeline(services.Pipeline))
+				pipelineRoutes.POST("/:id/trigger", middleware.RBACEnforce(services.RBAC, "pipeline", "execute"), handlers.TriggerPipeline(services.Pipeline))
 				pipelineRoutes.GET("/:id/runs", handlers.ListPipelineRuns(services.Pipeline))
 				pipelineRoutes.GET("/:id/runs/:runId", handlers.GetPipelineRun(services.Pipeline))
 				pipelineRoutes.POST("/:id/runs/:runId/cancel", handlers.CancelPipelineRun(services.Pipeline))

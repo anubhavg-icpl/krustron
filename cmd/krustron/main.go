@@ -39,6 +39,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/internal/helm"
 	"github.com/anubhavg-icpl/krustron/internal/pipeline"
 	"github.com/anubhavg-icpl/krustron/internal/auth"
+	"github.com/anubhavg-icpl/krustron/internal/rbac"
 	"github.com/anubhavg-icpl/krustron/internal/security"
 	"github.com/anubhavg-icpl/krustron/internal/observability"
 	"github.com/anubhavg-icpl/krustron/pkg/cache"
@@ -211,6 +212,18 @@ func runServer(cmd *cobra.Command, args []string) error {
 	securityService := security.NewService(db, kubeManager, &cfg.Security)
 	observabilityService := observability.NewService(&cfg.Observability)
 
+	// Fine-grained RBAC (Casbin, GORM-backed). Reuses the GORM handle; tables
+	// are namespaced rbac_* so they don't collide with auth's roles table.
+	// Nil-safe: if it fails to construct, RBACEnforce degrades to deny.
+	var rbacService *rbac.Service
+	if gormDB, gerr := database.NewGormDB(&cfg.Database); gerr != nil {
+		logger.Warn("Failed to open GORM connection for RBAC, fine-grained RBAC disabled", zap.Error(gerr))
+	} else if svc, rerr := rbac.NewService(gormDB, logger.Get(), &rbac.Config{AuditEnabled: true}); rerr != nil {
+		logger.Warn("Failed to create RBAC service", zap.Error(rerr))
+	} else {
+		rbacService = svc
+	}
+
 	// Cost service is GORM-backed (the rest of the app uses database/sql).
 	// Open a second handle on the same DB; if it fails, cost endpoints stay nil
 	// and the router skips registration.
@@ -265,6 +278,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		Observability: observabilityService,
 		Hub:           wsHub,
 		Cost:          costService,
+		RBAC:          rbacService,
 	})
 
 	// Start server

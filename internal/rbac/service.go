@@ -167,6 +167,18 @@ type AuditLog struct {
 	CreatedAt  time.Time              `json:"created_at"`
 }
 
+// Table names are namespaced under rbac_* so the gorm models don't collide
+// with the auth package's existing `roles`/`permissions` tables (the auth
+// roles table has a different schema; sharing it would corrupt either side).
+func (Role) TableName() string         { return "rbac_roles" }
+func (Permission) TableName() string   { return "rbac_permissions" }
+func (Team) TableName() string         { return "rbac_teams" }
+func (TeamMember) TableName() string   { return "rbac_team_members" }
+func (TeamRole) TableName() string     { return "rbac_team_roles" }
+func (Project) TableName() string      { return "rbac_projects" }
+func (AccessRequest) TableName() string { return "rbac_access_requests" }
+func (AuditLog) TableName() string     { return "rbac_audit_logs" }
+
 // PolicyCondition represents a condition for attribute-based access control
 type PolicyCondition struct {
 	Field    string      `json:"field"`
@@ -356,11 +368,36 @@ func (s *Service) initializeDefaultRoles() error {
 			}
 			if err := s.db.Create(&role).Error; err != nil {
 				s.logger.Warn("Failed to create default role", zap.String("role", role.Name), zap.Error(err))
+				continue
 			}
+		}
+
+		// Sync the role's permissions into the Casbin enforcer so Authorize
+		// actually has policies to evaluate. Subject is "role:<name>" so a JWT
+		// role can be enforced directly without per-user g mappings.
+		subject := "role:" + role.Name
+		for _, perm := range role.Permissions {
+			// p = sub, dom, obj, act, eft, priority  (dom "*" = any domain)
+			_, _ = s.enforcer.AddPolicy(subject, "*", perm.Resource, perm.Action, perm.Effect, perm.Priority)
 		}
 	}
 
 	return nil
+}
+
+// AuthorizeRole checks whether a JWT role (e.g. "admin", "developer") may
+// perform action on resource. It enforces with subject "role:<role>", which
+// is how default roles are seeded into the enforcer.
+func (s *Service) AuthorizeRole(ctx context.Context, role, resource, action string) (bool, error) {
+	if role == "" {
+		return false, nil
+	}
+	// super-admin / admin short-circuit: the seeded policy has resource/action
+	// wildcards, but guard explicitly in case seeding was partial.
+	if role == "admin" {
+		return true, nil
+	}
+	return s.Authorize(ctx, "role:"+role, "*", resource, action)
 }
 
 // Authorize checks if a subject can perform an action on a resource
