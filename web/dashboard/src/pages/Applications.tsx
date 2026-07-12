@@ -45,6 +45,37 @@ function ApplicationCard({ app }: { app: Application }) {
     return unsubscribe
   }, [app.id, subscribe, isConnected])
 
+  const removeApplication = useApplicationsStore((s) => s.removeApplication)
+  const [acting, setActing] = useState(false)
+
+  const handleSync = async () => {
+    setMenuOpen(false)
+    setActing(true)
+    try {
+      await applicationsApi.sync(app.id)
+      showSuccessToast('Application synced', app.name)
+    } catch (e) {
+      showErrorToast('Sync failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setMenuOpen(false)
+    if (!window.confirm(`Delete application "${app.name}"? This cannot be undone.`)) return
+    setActing(true)
+    try {
+      await applicationsApi.delete(app.id)
+      removeApplication(app.id)
+      showSuccessToast('Application deleted', app.name)
+    } catch (e) {
+      showErrorToast('Delete failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setActing(false)
+    }
+  }
+
   const syncStatusStyles = {
     Synced: 'status-synced',
     OutOfSync: 'status-out-of-sync',
@@ -110,11 +141,19 @@ function ApplicationCard({ app }: { app: Application }) {
                   className="dropdown-menu"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button className="dropdown-item flex items-center gap-2 w-full">
+                  <button
+                    onClick={handleSync}
+                    disabled={acting}
+                    className="dropdown-item flex items-center gap-2 w-full disabled:opacity-50"
+                  >
                     <Play className="w-4 h-4" />
                     Sync
                   </button>
-                  <button className="dropdown-item flex items-center gap-2 w-full">
+                  <button
+                    onClick={handleSync}
+                    disabled={acting}
+                    className="dropdown-item flex items-center gap-2 w-full disabled:opacity-50"
+                  >
                     <RefreshCw className="w-4 h-4" />
                     Hard Refresh
                   </button>
@@ -123,7 +162,11 @@ function ApplicationCard({ app }: { app: Application }) {
                     Open in browser
                   </button>
                   <hr className="border-glass-border my-1" />
-                  <button className="dropdown-item flex items-center gap-2 w-full text-status-error">
+                  <button
+                    onClick={handleDelete}
+                    disabled={acting}
+                    className="dropdown-item flex items-center gap-2 w-full text-status-error disabled:opacity-50"
+                  >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>
