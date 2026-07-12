@@ -53,12 +53,22 @@ func New(cfg *Config) *gin.Engine {
 	r.Use(middleware.RateLimiter(100, 200)) // 100 requests per second, burst 200
 
 	// CORS
+	// AllowOrigins: ["*"] combined with AllowCredentials: true is invalid —
+	// browsers reject credentialed "*" and gin-contrib/cors would otherwise
+	// echo back any requesting Origin, leaking credentialed access. When the
+	// operator hasn't configured specific origins we disable credentials and
+	// keep the explicit wildcard (cookie/auth-header flows must set real origins).
+	allowOrigins := cfg.CorsOrigins
+	allowCredentials := true
+	if len(allowOrigins) == 1 && allowOrigins[0] == "*" {
+		allowCredentials = false
+	}
 	corsConfig := cors.Config{
-		AllowOrigins:     cfg.CorsOrigins,
+		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Request-ID"},
 		ExposeHeaders:    []string{"Content-Length", "X-Request-ID"},
-		AllowCredentials: true,
+		AllowCredentials: allowCredentials,
 		MaxAge:           12 * time.Hour,
 	}
 	r.Use(cors.New(corsConfig))
@@ -116,9 +126,12 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 			{
 				clusterRoutes.GET("", handlers.ListClusters(services.Cluster))
 				clusterRoutes.GET("/:id", handlers.GetCluster(services.Cluster))
-				clusterRoutes.POST("", handlers.CreateCluster(services.Cluster))
-				clusterRoutes.PUT("/:id", handlers.UpdateCluster(services.Cluster))
-				clusterRoutes.DELETE("/:id", handlers.DeleteCluster(services.Cluster))
+				clusterRoutes.POST("", middleware.RequireRole("admin"), handlers.CreateCluster(services.Cluster))
+				clusterRoutes.PUT("/:id", middleware.RequireRole("admin"), handlers.UpdateCluster(services.Cluster))
+				// ponytail: destructive infra ops gated to admin; full fine-grained
+				// RBAC (RequirePermission per route + object-level scoping) is the
+				// remaining P0 before real deployment.
+				clusterRoutes.DELETE("/:id", middleware.RequireRole("admin"), handlers.DeleteCluster(services.Cluster))
 				clusterRoutes.GET("/:id/health", handlers.GetClusterHealth(services.Cluster))
 				clusterRoutes.GET("/:id/resources", handlers.GetClusterResources(services.Cluster))
 				clusterRoutes.GET("/:id/namespaces", handlers.GetNamespaces(services.Cluster))
@@ -135,7 +148,7 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 			{
 				helmRoutes.GET("/repositories", handlers.ListHelmRepos(services.Helm))
 				helmRoutes.POST("/repositories", handlers.AddHelmRepo(services.Helm))
-				helmRoutes.DELETE("/repositories/:name", handlers.RemoveHelmRepo(services.Helm))
+				helmRoutes.DELETE("/repositories/:name", middleware.RequireRole("admin"), handlers.RemoveHelmRepo(services.Helm))
 				helmRoutes.POST("/repositories/:name/sync", handlers.SyncHelmRepo(services.Helm))
 				helmRoutes.GET("/charts", handlers.SearchCharts(services.Helm))
 				helmRoutes.GET("/charts/:repo/:chart", handlers.GetChartDetails(services.Helm))
@@ -144,7 +157,7 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				helmRoutes.GET("/releases/:cluster/:namespace/:name", handlers.GetRelease(services.Helm))
 				helmRoutes.POST("/releases", handlers.InstallRelease(services.Helm))
 				helmRoutes.PUT("/releases/:cluster/:namespace/:name", handlers.UpgradeRelease(services.Helm))
-				helmRoutes.DELETE("/releases/:cluster/:namespace/:name", handlers.UninstallRelease(services.Helm))
+				helmRoutes.DELETE("/releases/:cluster/:namespace/:name", middleware.RequireRole("admin"), handlers.UninstallRelease(services.Helm))
 				helmRoutes.POST("/releases/:cluster/:namespace/:name/rollback", handlers.RollbackRelease(services.Helm))
 				helmRoutes.GET("/releases/:cluster/:namespace/:name/history", handlers.GetReleaseHistory(services.Helm))
 				helmRoutes.GET("/releases/:cluster/:namespace/:name/values", handlers.GetReleaseValues(services.Helm))
@@ -157,7 +170,7 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				appRoutes.GET("/:id", handlers.GetApplication(services.GitOps))
 				appRoutes.POST("", handlers.CreateApplication(services.GitOps))
 				appRoutes.PUT("/:id", handlers.UpdateApplication(services.GitOps))
-				appRoutes.DELETE("/:id", handlers.DeleteApplication(services.GitOps))
+				appRoutes.DELETE("/:id", middleware.RequireRole("admin"), handlers.DeleteApplication(services.GitOps))
 				appRoutes.POST("/:id/sync", handlers.SyncApplication(services.GitOps))
 				appRoutes.GET("/:id/status", handlers.GetApplicationStatus(services.GitOps))
 				appRoutes.GET("/:id/resources", handlers.GetApplicationResources(services.GitOps))
@@ -173,7 +186,7 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				pipelineRoutes.GET("/:id", handlers.GetPipeline(services.Pipeline))
 				pipelineRoutes.POST("", handlers.CreatePipeline(services.Pipeline))
 				pipelineRoutes.PUT("/:id", handlers.UpdatePipeline(services.Pipeline))
-				pipelineRoutes.DELETE("/:id", handlers.DeletePipeline(services.Pipeline))
+				pipelineRoutes.DELETE("/:id", middleware.RequireRole("admin"), handlers.DeletePipeline(services.Pipeline))
 				pipelineRoutes.POST("/:id/trigger", handlers.TriggerPipeline(services.Pipeline))
 				pipelineRoutes.GET("/:id/runs", handlers.ListPipelineRuns(services.Pipeline))
 				pipelineRoutes.GET("/:id/runs/:runId", handlers.GetPipelineRun(services.Pipeline))
@@ -190,9 +203,9 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				securityRoutes.POST("/scans", handlers.TriggerSecurityScan(services.Security))
 				securityRoutes.GET("/vulnerabilities", handlers.ListVulnerabilities(services.Security))
 				securityRoutes.GET("/policies", handlers.ListPolicies(services.Security))
-				securityRoutes.POST("/policies", handlers.CreatePolicy(services.Security))
-				securityRoutes.PUT("/policies/:id", handlers.UpdatePolicy(services.Security))
-				securityRoutes.DELETE("/policies/:id", handlers.DeletePolicy(services.Security))
+				securityRoutes.POST("/policies", middleware.RequireRole("admin"), handlers.CreatePolicy(services.Security))
+				securityRoutes.PUT("/policies/:id", middleware.RequireRole("admin"), handlers.UpdatePolicy(services.Security))
+				securityRoutes.DELETE("/policies/:id", middleware.RequireRole("admin"), handlers.DeletePolicy(services.Security))
 				securityRoutes.POST("/policies/:id/validate", handlers.ValidatePolicy(services.Security))
 			}
 
@@ -250,9 +263,11 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 		}
 	}
 
-	// WebSocket endpoints for real-time updates
-	// Generic WebSocket endpoint for dashboard connection
-	r.GET("/ws", handlers.DashboardWS())
+	// WebSocket endpoints for real-time updates.
+	// All WS routes — including the generic dashboard socket — must pass WSAuth.
+	// (Previously /ws was registered outside the auth group: an unauthenticated
+	// real-time firehose of cluster/app/pipeline data.)
+	r.GET("/ws", middleware.WSAuth(services.Auth), handlers.DashboardWS())
 
 	ws := r.Group("/ws")
 	ws.Use(middleware.WSAuth(services.Auth))
