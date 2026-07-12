@@ -13,6 +13,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
+	"github.com/anubhavg-icpl/krustron/pkg/websocket"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +22,12 @@ type Service struct {
 	db          *database.PostgresDB
 	kubeManager *kube.ClientManager
 	config      *config.GitOpsConfig
+	emitter     *websocket.EventEmitter
 }
+
+// SetEventEmitter wires the real-time hub so application mutations broadcast
+// sync/status to subscribed dashboard clients. Optional: nil-safe.
+func (s *Service) SetEventEmitter(e *websocket.EventEmitter) { s.emitter = e }
 
 // NewService creates a new GitOps service
 func NewService(db *database.PostgresDB, kubeManager *kube.ClientManager, cfg *config.GitOpsConfig) *Service {
@@ -322,6 +328,13 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*Application,
 		zap.String("app_id", app.ID),
 		zap.String("name", app.Name),
 	)
+
+	// Notify dashboard clients watching this application / the applications feed.
+	if s.emitter != nil {
+		s.emitter.EmitAppStatus(app.ID, map[string]interface{}{
+			"name": app.Name, "sync_status": "unknown", "health_status": "unknown",
+		})
+	}
 
 	return &app, nil
 }

@@ -19,6 +19,7 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
+	"github.com/anubhavg-icpl/krustron/pkg/websocket"
 )
 
 // Config holds router configuration
@@ -36,6 +37,7 @@ type Services struct {
 	Auth          *auth.Service
 	Security      *security.Service
 	Observability *observability.Service
+	Hub           *websocket.Hub
 }
 
 // New creates a new Gin router
@@ -267,7 +269,7 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 	// All WS routes — including the generic dashboard socket — must pass WSAuth.
 	// (Previously /ws was registered outside the auth group: an unauthenticated
 	// real-time firehose of cluster/app/pipeline data.)
-	r.GET("/ws", middleware.WSAuth(services.Auth), handlers.DashboardWS())
+	r.GET("/ws", middleware.WSAuth(services.Auth), handlers.DashboardWS(services.Hub))
 
 	ws := r.Group("/ws")
 	ws.Use(middleware.WSAuth(services.Auth))

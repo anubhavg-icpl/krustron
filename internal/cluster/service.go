@@ -14,6 +14,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
+	"github.com/anubhavg-icpl/krustron/pkg/websocket"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +26,12 @@ type Service struct {
 	db          *database.PostgresDB
 	kubeManager *kube.ClientManager
 	cache       *cache.RedisCache
+	emitter     *websocket.EventEmitter
 }
+
+// SetEventEmitter wires the real-time hub so cluster mutations broadcast
+// status to subscribed dashboard clients. Optional: nil-safe.
+func (s *Service) SetEventEmitter(e *websocket.EventEmitter) { s.emitter = e }
 
 // NewService creates a new cluster service
 func NewService(db *database.PostgresDB, kubeManager *kube.ClientManager, cache *cache.RedisCache) *Service {
@@ -297,6 +303,13 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*Cluster, err
 		zap.String("cluster_id", cluster.ID),
 		zap.String("name", cluster.Name),
 	)
+
+	// Notify any dashboard clients watching the clusters channel.
+	if s.emitter != nil {
+		s.emitter.EmitClusterStatus(cluster.ID, map[string]interface{}{
+			"name": cluster.Name, "status": cluster.Status,
+		})
+	}
 
 	return &cluster, nil
 }
