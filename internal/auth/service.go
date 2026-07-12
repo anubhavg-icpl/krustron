@@ -537,6 +537,9 @@ func (s *Service) UpdateUser(ctx context.Context, id string, req *UpdateUserRequ
 	return s.GetUser(ctx, id)
 }
 
+// AuthConfig returns the auth configuration (handlers use it for cookie mode).
+func (s *Service) AuthConfig() *config.AuthConfig { return s.config }
+
 // Logout invalidates user session
 func (s *Service) Logout(ctx context.Context, userID, jti string) error {
 	// Revoke the presented access token until its natural expiry.

@@ -89,6 +89,13 @@ type AuthConfig struct {
 	CasbinPolicyPath    string        `mapstructure:"casbin_policy_path"`
 	SessionSecret       string        `mapstructure:"session_secret"`
 	BCryptCost          int           `mapstructure:"bcrypt_cost"`
+	// UseCookie issues access/refresh tokens as HttpOnly cookies (Secure +
+	// SameSite=Lax) in addition to the JSON body. Opt-in; default off keeps the
+	// existing Bearer-header flow. Enabling requires the dashboard to send
+	// credentials:'include' and a CSRF token — see docs.
+	UseCookie     bool   `mapstructure:"use_cookie"`
+	CookieDomain  string `mapstructure:"cookie_domain"`
+	CookieSecure  bool   `mapstructure:"cookie_secure"`
 }
 
 // KubernetesConfig holds Kubernetes client configuration

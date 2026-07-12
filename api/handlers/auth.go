@@ -11,6 +11,36 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// setAuthCookies issues HttpOnly access/refresh cookies when the service is
+// configured for cookie mode (opt-in). No-op otherwise, so the default
+// Bearer-header flow is untouched.
+func setAuthCookies(c *gin.Context, svc *auth.Service, resp *auth.LoginResponse) {
+	cfg := svc.AuthConfig()
+	if !cfg.UseCookie {
+		return
+	}
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("access_token", resp.AccessToken, int(maxInt(int64(resp.ExpiresIn))), "/", cfg.CookieDomain, cfg.CookieSecure, true)
+	c.SetCookie("refresh_token", resp.RefreshToken, int(cfg.RefreshExpiration.Seconds()), "/", cfg.CookieDomain, cfg.CookieSecure, true)
+}
+
+func clearAuthCookies(c *gin.Context, svc *auth.Service) {
+	cfg := svc.AuthConfig()
+	if !cfg.UseCookie {
+		return
+	}
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("access_token", "", -1, "/", cfg.CookieDomain, cfg.CookieSecure, true)
+	c.SetCookie("refresh_token", "", -1, "/", cfg.CookieDomain, cfg.CookieSecure, true)
+}
+
+func maxInt(v int64) int64 {
+	if v < 0 {
+		return 0
+	}
+	return v
+}
+
 // Login handles user login
 func Login(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -26,6 +56,7 @@ func Login(svc *auth.Service) gin.HandlerFunc {
 			return
 		}
 
+		setAuthCookies(c, svc, resp)
 		c.JSON(http.StatusOK, gin.H{"data": resp})
 	}
 }
@@ -45,6 +76,7 @@ func Register(svc *auth.Service) gin.HandlerFunc {
 			return
 		}
 
+		setAuthCookies(c, svc, resp)
 		c.JSON(http.StatusCreated, gin.H{"data": resp})
 	}
 }
@@ -64,6 +96,7 @@ func RefreshToken(svc *auth.Service) gin.HandlerFunc {
 			return
 		}
 
+		setAuthCookies(c, svc, resp)
 		c.JSON(http.StatusOK, gin.H{"data": resp})
 	}
 }
@@ -161,6 +194,7 @@ func Logout(svc *auth.Service) gin.HandlerFunc {
 			return
 		}
 
+		clearAuthCookies(c, svc)
 		c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
 	}
 }
