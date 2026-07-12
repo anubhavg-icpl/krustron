@@ -1,7 +1,7 @@
 // Krustron Dashboard - Security Page
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -21,6 +21,9 @@ import {
   Cell,
 } from 'recharts'
 import { BarChart2 } from 'lucide-react'
+import { securityApi, ApiClientError } from '@/api'
+import type { Vulnerability as ApiVulnerability } from '@/api'
+import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
 
 // Types
 interface Vulnerability {
@@ -97,7 +100,45 @@ function VulnerabilityCard({
 // Security Overview
 function SecurityOverview() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [vulnerabilities] = useState<Vulnerability[]>([])
+  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
+  const [loading, setLoading] = useState(true)
+  const [scanning, setScanning] = useState(false)
+
+  // Map the backend Vulnerability shape onto the card props.
+  const mapVuln = (v: ApiVulnerability): Vulnerability => ({
+    cve: v.vuln_id || v.id,
+    severity: (['critical', 'high', 'medium', 'low'].includes(v.severity) ? v.severity : 'low') as Vulnerability['severity'],
+    title: v.title,
+    packageName: v.package,
+    installedVersion: v.version,
+    fixedVersion: v.fixed_in || undefined,
+    affectedImages: 1,
+  })
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await securityApi.listVulnerabilities({ limit: 200 })
+      setVulnerabilities(data.map(mapVuln))
+    } catch (e) {
+      showErrorToast('Failed to load vulnerabilities', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  const handleRunScan = async () => {
+    // A targeted scan needs a target selector (not in this view yet); until
+    // then, refresh the list so the button isn't a no-op.
+    setScanning(true)
+    await refresh()
+    setScanning(false)
+    showSuccessToast('Vulnerabilities refreshed', 'Triggering a scan needs a selected target — coming next')
+  }
 
   // Calculate severity counts from real data
   const severityData = [
@@ -122,8 +163,8 @@ function SecurityOverview() {
             <Download className="w-4 h-4" />
             Export Report
           </button>
-          <button className="glass-btn-primary flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={handleRunScan} disabled={scanning || loading} className="glass-btn-primary flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={scanning ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
             Run Scan
           </button>
         </div>
