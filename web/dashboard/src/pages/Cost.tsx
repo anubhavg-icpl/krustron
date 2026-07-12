@@ -1,7 +1,7 @@
 // Krustron Dashboard - Cost Management Page
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -29,6 +29,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
+import { costApi } from '@/api'
 
 // Types
 interface CostData {
@@ -95,10 +96,58 @@ function CostMetricCard({
 function CostOverview() {
   const [dateRange, setDateRange] = useState('30d')
   const [costTrend] = useState<CostData[]>([])
-  const [costByCluster] = useState<ClusterCost[]>([])
-  const [costByResource] = useState<ResourceCost[]>([])
+  const [costByCluster, setCostByCluster] = useState<ClusterCost[]>([])
+  const [costByResource, setCostByResource] = useState<ResourceCost[]>([])
+  const [totalCost, setTotalCost] = useState(0)
+  const [changePercent, setChangePercent] = useState(0)
 
-  const totalCost = costByCluster.reduce((acc, item) => acc + item.value, 0)
+  // Pull the real cost summary + allocations. The page was previously an empty
+  // shell (state initialized to [] and never fetched).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [summary, allocations] = await Promise.all([
+          costApi.getSummary(),
+          costApi.listAllocations({ limit: 200 }),
+        ])
+        if (cancelled) return
+        setTotalCost(summary.current_month_cost || 0)
+        setChangePercent(summary.change_percent || 0)
+
+        // Group allocations by cluster for the breakdown chart.
+        const byCluster = new Map<string, number>()
+        const byResource: Record<string, number> = { CPU: 0, Memory: 0, Storage: 0, Network: 0 }
+        const palette = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6']
+        for (const a of allocations) {
+          const key = a.cluster_name || a.cluster_id || 'unknown'
+          byCluster.set(key, (byCluster.get(key) ?? 0) + (a.total_cost || 0))
+          byResource.CPU += a.cpu_cost || 0
+          byResource.Memory += a.memory_cost || 0
+          byResource.Storage += a.storage_cost || 0
+          byResource.Network += a.network_cost || 0
+        }
+        setCostByCluster(
+          Array.from(byCluster.entries()).map(([name, value], i) => ({
+            name,
+            value: Math.round(value * 100) / 100,
+            color: palette[i % palette.length],
+          }))
+        )
+        // Only keep resource buckets with non-zero cost for the chart.
+        setCostByResource(
+          Object.entries(byResource)
+            .filter(([, c]) => c > 0)
+            .map(([name, cost]) => ({ name, cost: Math.round(cost * 100) / 100 }))
+        )
+      } catch {
+        // Leave zeros — the empty-state UI already renders gracefully.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [dateRange])
 
   return (
     <div className="space-y-6">
@@ -131,8 +180,12 @@ function CostOverview() {
         <CostMetricCard
           title="Current Month"
           value={`$${totalCost.toLocaleString()}`}
-          change={totalCost > 0 ? "Tracking enabled" : "No data yet"}
-          changeType="neutral"
+          change={
+            totalCost > 0
+              ? `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(1)}% vs last month`
+              : 'No data yet'
+          }
+          changeType={changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'neutral'}
           icon={DollarSign}
         />
         <CostMetricCard
