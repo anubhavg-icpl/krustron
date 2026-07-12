@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/anubhavg-icpl/krustron/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -493,15 +494,15 @@ func removeDuplicates(slice []string) []string {
 }
 
 func generateID() string {
-	return "00000000-0000-0000-0000-000000000000" // Simplified
+	return utils.GenerateID()
 }
 
 func generateShortID() string {
-	return "abcd1234"
+	return utils.GenerateShortID()
 }
 
 func hashSHA256(s string) string {
-	return "0000000000000000000000000000000000000000000000000000000000000000"
+	return utils.HashSHA256(s)
 }
 
 func formatDuration(d time.Duration) string {
@@ -548,23 +549,11 @@ func formatBytes(bytes int64) string {
 }
 
 func validateEmail(email string) bool {
-	if email == "" || !containsString([]string{"@"}, "@") {
-		return false
-	}
-	// Simplified validation
-	return len(email) > 5 && email[0] != '@' && email[len(email)-1] != '@'
+	return utils.ValidateEmail(email)
 }
 
 func validateKubernetesName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, r := range name {
-		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
-			return false
-		}
-	}
-	return name[0] != '-' && name[len(name)-1] != '-'
+	return utils.ValidateKubernetesName(name)
 }
 
 func min(a, b int) int {
