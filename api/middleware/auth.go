@@ -33,18 +33,28 @@ func RequestID() gin.HandlerFunc {
 func JWTAuth(authService *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, errors.Unauthorized("missing authorization header").ToResponse(getRequestID(c)))
+
+		var token string
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, errors.Unauthorized("invalid authorization header format").ToResponse(getRequestID(c)))
+				return
+			}
+			token = parts[1]
+		} else if authService.AuthConfig().UseCookie {
+			// Cookie mode: fall back to the HttpOnly access_token cookie.
+			if t, err := c.Cookie("access_token"); err == nil && t != "" {
+				token = t
+			}
+		}
+
+		if token == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, errors.Unauthorized("missing authorization token").ToResponse(getRequestID(c)))
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, errors.Unauthorized("invalid authorization header format").ToResponse(getRequestID(c)))
-			return
-		}
-
-		claims, err := authService.ValidateToken(parts[1])
+		claims, err := authService.ValidateToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errors.Unauthorized("invalid or expired token").ToResponse(getRequestID(c)))
 			return
