@@ -171,7 +171,7 @@ export default function Dashboard() {
   const { alerts, unreadCount } = useAlertsStore()
 
   // Real-time metrics state
-  const [, setClusterMetrics] = useState<ClusterMetrics[]>([])
+  const [clusterMetrics, setClusterMetrics] = useState<ClusterMetrics[]>([])
   const [, setRecentPipelineRuns] = useState<PipelineRun[]>([])
   const [cpuHistory, setCpuHistory] = useState<{ time: string; value: number }[]>([])
 
@@ -214,6 +214,25 @@ export default function Dashboard() {
 
   // Use real data only
   const displayCpuHistory = cpuHistory
+
+  // Aggregate live cluster metrics for the Resource Usage panel. Previously the
+  // WS handler stored these into a state slot whose value was discarded, so the
+  // panel was hardcoded to 0% even while real metrics arrived.
+  const liveMetrics = clusterMetrics.length > 0
+    ? clusterMetrics.reduce(
+        (acc, m) => {
+          acc.cpu += m.cpu?.percentage ?? 0
+          acc.memory += m.memory?.percentage ?? 0
+          acc.podsTotal += m.pods?.total ?? 0
+          acc.podsRunning += m.pods?.running ?? 0
+          return acc
+        },
+        { cpu: 0, memory: 0, podsTotal: 0, podsRunning: 0 }
+      )
+    : { cpu: 0, memory: 0, podsTotal: 0, podsRunning: 0 }
+  const cpuPct = clusterMetrics.length ? Math.round(liveMetrics.cpu / clusterMetrics.length) : 0
+  const memPct = clusterMetrics.length ? Math.round(liveMetrics.memory / clusterMetrics.length) : 0
+  const podsPct = liveMetrics.podsTotal > 0 ? Math.round((liveMetrics.podsRunning / liveMetrics.podsTotal) * 100) : 0
 
   // Calculate summary stats
   const healthyClusters = clusters.filter(c => c.status === 'connected').length
@@ -351,10 +370,10 @@ export default function Dashboard() {
                     <Cpu className="w-4 h-4 text-primary-400" />
                     <span className="text-sm text-gray-400">CPU</span>
                   </div>
-                  <span className="text-sm font-medium text-white">0%</span>
+                  <span className="text-sm font-medium text-white">{cpuPct}%</span>
                 </div>
                 <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: '0%' }} />
+                  <div className="progress-fill" style={{ width: `${cpuPct}%` }} />
                 </div>
               </div>
               <div>
@@ -363,10 +382,10 @@ export default function Dashboard() {
                     <HardDrive className="w-4 h-4 text-accent-400" />
                     <span className="text-sm text-gray-400">Memory</span>
                   </div>
-                  <span className="text-sm font-medium text-white">0%</span>
+                  <span className="text-sm font-medium text-white">{memPct}%</span>
                 </div>
                 <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: '0%' }} />
+                  <div className="progress-fill" style={{ width: `${memPct}%` }} />
                 </div>
               </div>
               <div>
@@ -375,10 +394,10 @@ export default function Dashboard() {
                     <Box className="w-4 h-4 text-status-info" />
                     <span className="text-sm text-gray-400">Pods</span>
                   </div>
-                  <span className="text-sm font-medium text-white">0%</span>
+                  <span className="text-sm font-medium text-white">{podsPct}%</span>
                 </div>
                 <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: '0%' }} />
+                  <div className="progress-fill" style={{ width: `${podsPct}%` }} />
                 </div>
               </div>
             </div>
