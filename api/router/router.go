@@ -111,6 +111,8 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				authRoutes.PUT("/me", handlers.UpdateCurrentUser(services.Auth))
 				authRoutes.POST("/logout", handlers.Logout(services.Auth))
 				authRoutes.PUT("/password", handlers.ChangePassword(services.Auth))
+				authRoutes.GET("/sessions", handlers.ListSessions(services.Auth))
+				authRoutes.DELETE("/sessions/:id", handlers.RevokeSession(services.Auth))
 			}
 
 			// User management (admin only)

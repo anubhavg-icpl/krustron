@@ -20,6 +20,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -252,6 +253,11 @@ func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.Unauthorized("refresh token cannot be used for access")
 	}
 
+	// Enforce session revocation (best-effort; no-op without Redis).
+	if s.isRevoked(context.Background(), claims.ID) {
+		return nil, errors.Unauthorized("token has been revoked")
+	}
+
 	return claims, nil
 }
 
@@ -373,8 +379,10 @@ func (s *Service) generateTokens(ctx context.Context, user *User) (*LoginRespons
 	refreshExpiry := now.Add(s.config.RefreshExpiration)
 
 	// Generate access token
+	jti := uuid.NewString()
 	accessClaims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			ExpiresAt: jwt.NewNumericDate(accessExpiry),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -394,6 +402,10 @@ func (s *Service) generateTokens(ctx context.Context, user *User) (*LoginRespons
 	if err != nil {
 		return nil, errors.InternalWrap(err, "failed to sign access token")
 	}
+
+	// Record the session so it can be listed / revoked. Best-effort: if Redis is
+	// unavailable, auth still works (just without session tracking).
+	s.recordSession(context.Background(), user.ID, jti, now, accessExpiry)
 
 	// Generate refresh token
 	refreshClaims := &Claims{
@@ -526,11 +538,96 @@ func (s *Service) UpdateUser(ctx context.Context, id string, req *UpdateUserRequ
 }
 
 // Logout invalidates user session
-func (s *Service) Logout(ctx context.Context, userID string) error {
-	// In a stateless JWT setup, we just log the logout
-	// With Redis, we could blacklist the token
+func (s *Service) Logout(ctx context.Context, userID, jti string) error {
+	// Revoke the presented access token until its natural expiry.
+	if jti != "" {
+		_ = s.RevokeSession(ctx, userID, jti)
+	}
 	logger.Info("User logged out", zap.String("user_id", userID))
 	return nil
+}
+
+// SessionInfo is a non-secret summary of an active session.
+type SessionInfo struct {
+	JTI       string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Current   bool      `json:"current,omitempty"`
+}
+
+func sessionKey(userID string) string { return "auth:sessions:" + userID }
+func revokedKey(jti string) string    { return "auth:revoked:" + jti }
+
+// recordSession stores a session record (best-effort) keyed by user -> jti.
+func (s *Service) recordSession(ctx context.Context, userID, jti string, createdAt, expiresAt time.Time) {
+	if s.cache == nil || jti == "" {
+		return
+	}
+	payload, _ := json.Marshal(SessionInfo{JTI: jti, CreatedAt: createdAt, ExpiresAt: expiresAt})
+	ttl := time.Until(expiresAt)
+	if ttl <= 0 {
+		return
+	}
+	// Store per-session metadata with its own TTL, and add the jti to the
+	// user's set so ListSessions can enumerate. The set entry is cleaned up
+	// lazily by RevokeSession / expiry sweeps.
+	_ = s.cache.Set(ctx, "auth:session:"+jti, payload, ttl)
+	_ = s.cache.SAdd(ctx, sessionKey(userID), jti)
+}
+
+// ListSessions returns active sessions for a user.
+func (s *Service) ListSessions(ctx context.Context, userID string) ([]SessionInfo, error) {
+	if s.cache == nil {
+		return nil, nil
+	}
+	jtis, err := s.cache.SMembers(ctx, sessionKey(userID))
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to list sessions")
+	}
+	var sessions []SessionInfo
+	for _, jti := range jtis {
+		var info SessionInfo
+		if err := s.cache.Get(ctx, "auth:session:"+jti, &info); err != nil {
+			// Expired/stale set member — drop it.
+			_ = s.cache.SRem(ctx, sessionKey(userID), jti)
+			continue
+		}
+		sessions = append(sessions, info)
+	}
+	return sessions, nil
+}
+
+// RevokeSession invalidates a single session until its original expiry.
+func (s *Service) RevokeSession(ctx context.Context, userID, jti string) error {
+	if s.cache == nil || jti == "" {
+		return nil
+	}
+	// Derive the revocation TTL from the session's own expiry if we still have
+	// it; otherwise fall back to the access-token class expiry so the
+	// revocation entry can't outlive the token class.
+	ttl := s.config.JWTExpiration
+	var info SessionInfo
+	if err := s.cache.Get(ctx, "auth:session:"+jti, &info); err == nil && !info.ExpiresAt.IsZero() {
+		if remaining := time.Until(info.ExpiresAt); remaining > 0 {
+			ttl = remaining
+		}
+	}
+	_ = s.cache.Set(ctx, revokedKey(jti), "1", ttl)
+	_ = s.cache.Delete(ctx, "auth:session:"+jti)
+	_ = s.cache.SRem(ctx, sessionKey(userID), jti)
+	return nil
+}
+
+// isRevoked reports whether a token id has been revoked (best-effort).
+func (s *Service) isRevoked(ctx context.Context, jti string) bool {
+	if s.cache == nil || jti == "" {
+		return false
+	}
+	ok, err := s.cache.Exists(ctx, revokedKey(jti))
+	if err != nil {
+		return false
+	}
+	return ok
 }
 
 // ChangePasswordRequest contains password change data
