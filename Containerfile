@@ -5,7 +5,7 @@
 # ============================================================================
 # Stage 1: Build Go backend
 # ============================================================================
-FROM docker.io/golang:1.22-alpine AS backend-builder
+FROM docker.io/golang:1.24-alpine AS backend-builder
 
 WORKDIR /app
 
