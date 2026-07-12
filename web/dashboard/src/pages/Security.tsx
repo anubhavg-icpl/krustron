@@ -102,7 +102,14 @@ function SecurityOverview() {
   const [searchQuery, setSearchQuery] = useState('')
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
   const [loading, setLoading] = useState(true)
-  const [scanning, setScanning] = useState(false)
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [scanForm, setScanForm] = useState({
+    scan_type: 'image' as 'image' | 'container' | 'cluster' | 'namespace',
+    target_type: 'deployment',
+    target_id: '',
+    target_name: '',
+  })
+  const [submittingScan, setSubmittingScan] = useState(false)
 
   // Map the backend Vulnerability shape onto the card props.
   const mapVuln = (v: ApiVulnerability): Vulnerability => ({
@@ -131,13 +138,25 @@ function SecurityOverview() {
     refresh()
   }, [refresh])
 
-  const handleRunScan = async () => {
-    // A targeted scan needs a target selector (not in this view yet); until
-    // then, refresh the list so the button isn't a no-op.
-    setScanning(true)
-    await refresh()
-    setScanning(false)
-    showSuccessToast('Vulnerabilities refreshed', 'Triggering a scan needs a selected target — coming next')
+  const handleRunScan = () => setShowScanModal(true)
+
+  const submitScan = async () => {
+    if (!scanForm.target_id || !scanForm.target_name) {
+      showErrorToast('Missing target', 'Target ID and name are required')
+      return
+    }
+    setSubmittingScan(true)
+    try {
+      await securityApi.triggerScan(scanForm)
+      showSuccessToast('Scan triggered', `${scanForm.scan_type} scan of ${scanForm.target_name} started`)
+      setShowScanModal(false)
+      setScanForm({ ...scanForm, target_id: '', target_name: '' })
+      await refresh()
+    } catch (e) {
+      showErrorToast('Scan failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setSubmittingScan(false)
+    }
   }
 
   // Calculate severity counts from real data
@@ -163,8 +182,8 @@ function SecurityOverview() {
             <Download className="w-4 h-4" />
             Export Report
           </button>
-          <button onClick={handleRunScan} disabled={scanning || loading} className="glass-btn-primary flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw className={scanning ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
+          <button onClick={handleRunScan} disabled={loading} className="glass-btn-primary flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
             Run Scan
           </button>
         </div>
@@ -294,6 +313,61 @@ function SecurityOverview() {
             .map((vuln) => (
               <VulnerabilityCard key={vuln.cve} {...vuln} />
             ))}
+        </div>
+      )}
+
+      {/* Run Scan modal */}
+      {showScanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-card p-6 w-full max-w-md space-y-4">
+            <h3 className="text-lg font-semibold text-white">Run Security Scan</h3>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Scan type</label>
+              <select
+                value={scanForm.scan_type}
+                onChange={(e) => setScanForm({ ...scanForm, scan_type: e.target.value as typeof scanForm.scan_type })}
+                className="glass-input"
+              >
+                <option value="image">Image</option>
+                <option value="container">Container</option>
+                <option value="cluster">Cluster</option>
+                <option value="namespace">Namespace</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Target type</label>
+              <input
+                value={scanForm.target_type}
+                onChange={(e) => setScanForm({ ...scanForm, target_type: e.target.value })}
+                placeholder="deployment, pod, namespace..."
+                className="glass-input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Target ID</label>
+              <input
+                value={scanForm.target_id}
+                onChange={(e) => setScanForm({ ...scanForm, target_id: e.target.value })}
+                placeholder="resource id"
+                className="glass-input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Target name</label>
+              <input
+                value={scanForm.target_name}
+                onChange={(e) => setScanForm({ ...scanForm, target_name: e.target.value })}
+                placeholder="resource name"
+                className="glass-input"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowScanModal(false)} className="glass-btn">Cancel</button>
+              <button onClick={submitScan} disabled={submittingScan} className="glass-btn-primary disabled:opacity-50">
+                {submittingScan ? 'Starting…' : 'Start Scan'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
