@@ -28,7 +28,7 @@ services:
       - KRUSTRON_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-krustron}
       - KRUSTRON_REDIS_HOST=redis
       - KRUSTRON_REDIS_PORT=6379
-      - KRUSTRON_AUTH_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - KRUSTRON_AUTH_JWT_SECRET=${JWT_SECRET:-dev-only-insecure-secret-change-me-32chars-min}
       - KRUSTRON_LOGGER_LEVEL=info
       - KRUSTRON_LOGGER_FORMAT=json
     depends_on:
@@ -38,7 +38,10 @@ services:
         condition: service_healthy
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-      - kubeconfig:/root/.kube:ro
+      # Bind the host kubeconfig read-only into the non-root user's HOME so the
+      # API can reach the local cluster. (Was an empty named volume at /root/.kube,
+      # which the krustron user could never read -> no Kubernetes client.)
+      - ${KUBECONFIG_DIR:-${HOME:-/root}/.kube}:/home/krustron/.kube:ro
     networks:
       - krustron-network
     healthcheck:
@@ -148,6 +151,4 @@ volumes:
   postgres-data:
     driver: local
   redis-data:
-    driver: local
-  kubeconfig:
     driver: local
