@@ -40,6 +40,13 @@ export interface RegisterRequest {
   name: string
 }
 
+export interface SessionInfo {
+  id: string
+  created_at: string
+  expires_at: string
+  current?: boolean
+}
+
 // ============================================================================
 // User Mapping
 // ============================================================================
@@ -95,6 +102,15 @@ export const authApi = {
 
   changePassword: async (data: { current_password: string; new_password: string }) => {
     return api.put<{ message: string }>('/auth/password', data)
+  },
+
+  listSessions: async () => {
+    const response = await api.get<SessionInfo[]>('/auth/sessions')
+    return response.data
+  },
+
+  revokeSession: async (id: string) => {
+    return api.delete<{ message: string }>(`/auth/sessions/${id}`)
   },
 }
 

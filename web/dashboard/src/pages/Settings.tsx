@@ -1,7 +1,7 @@
 // Krustron Dashboard - Settings Page
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -28,6 +28,7 @@ import { clsx } from 'clsx'
 import { useAuthStore, useUIStore } from '@/store/useStore'
 import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
 import { authApi, ApiClientError } from '@/api'
+import type { SessionInfo } from '@/api'
 
 // Settings Navigation
 const settingsNav = [
@@ -241,6 +242,34 @@ function SecuritySettings() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await authApi.listSessions()
+      setSessions(data || [])
+    } catch {
+      // Session tracking is optional (Redis-backed); ignore failures silently.
+    }
+  }, [])
+
+  const revoke = async (id: string) => {
+    setRevokingId(id)
+    try {
+      await authApi.revokeSession(id)
+      setSessions((prev) => prev.filter((s) => s.id !== id))
+      showSuccessToast('Session revoked', 'That session is now invalid')
+    } catch (e) {
+      showErrorToast('Revoke failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setRevokingId(null)
+    }
+  }
+
+  useEffect(() => {
+    loadSessions()
+  }, [loadSessions])
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
@@ -347,19 +376,45 @@ function SecuritySettings() {
 
         {/* Active Sessions */}
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Active Sessions</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-glass-light rounded-xl">
-              <div className="flex items-center gap-3">
-                <Server className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-white">Current Session</p>
-                  <p className="text-xs text-gray-400">macOS - Chrome - San Francisco, CA</p>
-                </div>
-              </div>
-              <span className="status-badge status-healthy">Active</span>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Active Sessions</h3>
+            <button onClick={loadSessions} className="text-xs text-gray-400 hover:text-white">
+              Refresh
+            </button>
           </div>
+          {sessions.length === 0 ? (
+            <p className="text-sm text-gray-400">No active sessions (or session tracking unavailable).</p>
+          ) : (
+            <div className="space-y-3">
+              {sessions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between p-4 bg-glass-light rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Server className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {s.current ? 'Current Session' : 'Session'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Issued {new Date(s.created_at).toLocaleString()} · expires{' '}
+                        {new Date(s.expires_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {s.current ? (
+                    <span className="status-badge status-healthy">Active</span>
+                  ) : (
+                    <button
+                      onClick={() => revoke(s.id)}
+                      disabled={revokingId === s.id}
+                      className="glass-btn text-status-error disabled:opacity-50"
+                    >
+                      {revokingId === s.id ? 'Revoking…' : 'Revoke'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </SettingsLayout>

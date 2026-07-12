@@ -149,13 +149,55 @@ func UpdateCurrentUser(svc *auth.Service) gin.HandlerFunc {
 func Logout(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
+		jti := ""
+		if claims, ok := c.Get("claims"); ok {
+			if cs, ok := claims.(*auth.Claims); ok {
+				jti = cs.ID
+			}
+		}
 
-		if err := svc.Logout(c.Request.Context(), userID.(string)); err != nil {
+		if err := svc.Logout(c.Request.Context(), userID.(string), jti); err != nil {
 			handleError(c, err)
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+	}
+}
+
+// ListSessions returns the caller's active sessions.
+func ListSessions(svc *auth.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		sessions, err := svc.ListSessions(c.Request.Context(), userID.(string))
+		if err != nil {
+			handleError(c, err)
+			return
+		}
+		// Mark the calling session.
+		if claims, ok := c.Get("claims"); ok {
+			if cs, ok := claims.(*auth.Claims); ok {
+				for i := range sessions {
+					if sessions[i].JTI == cs.ID {
+						sessions[i].Current = true
+					}
+				}
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"data": sessions})
+	}
+}
+
+// RevokeSession revokes one of the caller's sessions by jti.
+func RevokeSession(svc *auth.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		jti := c.Param("id")
+		if err := svc.RevokeSession(c.Request.Context(), userID.(string), jti); err != nil {
+			handleError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "session revoked"})
 	}
 }
 
