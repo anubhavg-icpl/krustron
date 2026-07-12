@@ -2,7 +2,7 @@
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
 import { useState, useEffect } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   GitBranch,
@@ -183,7 +183,10 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                   className="dropdown-menu"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button className="dropdown-item flex items-center gap-2 w-full">
+                  <button
+                    onClick={() => navigate(`/pipelines/${pipeline.id}`)}
+                    className="dropdown-item flex items-center gap-2 w-full"
+                  >
                     <Terminal className="w-4 h-4" />
                     View Logs
                   </button>
@@ -353,10 +356,147 @@ function PipelinesList() {
 
 // Pipeline Detail Page
 function PipelineDetail() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [pipeline, setPipeline] = useState<Pipeline | null>(null)
+  const [runs, setRuns] = useState<PipelineRun[]>([])
+  const [selectedRun, setSelectedRun] = useState<string | null>(null)
+  const [logs, setLogs] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      try {
+        const [p, r] = await Promise.all([
+          pipelinesApi.get(id).catch(() => null),
+          pipelinesApi.listRuns(id).catch(() => [] as PipelineRun[]),
+        ])
+        if (cancelled) return
+        setPipeline(p)
+        setRuns(r)
+        if (r.length > 0) setSelectedRun(r[0].id)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!id || !selectedRun) {
+      setLogs('')
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await pipelinesApi.getRunLogs(id, selectedRun)
+        if (cancelled) return
+        setLogs(typeof data === 'string' ? data : (data as { logs?: string })?.logs ?? '')
+      } catch {
+        if (!cancelled) setLogs('')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [id, selectedRun])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        Loading pipeline…
+      </div>
+    )
+  }
+
+  if (!pipeline) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+        <p>Pipeline not found.</p>
+        <button onClick={() => navigate('/pipelines')} className="glass-btn mt-4">
+          Back to Pipelines
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Pipeline Details</h1>
-      <p className="text-gray-400">Pipeline detail view with run history and logs</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <button onClick={() => navigate('/pipelines')} className="text-sm text-gray-400 hover:text-white mb-2">
+            ← Back
+          </button>
+          <h1 className="text-2xl font-bold text-white">{pipeline.name}</h1>
+          {pipeline.applicationName && <p className="text-gray-400 mt-1">{pipeline.applicationName}</p>}
+        </div>
+        <button
+          onClick={async () => {
+            try {
+              await pipelinesApi.trigger(id!)
+              const r = await pipelinesApi.listRuns(id!)
+              setRuns(r)
+              if (r.length > 0) setSelectedRun(r[0].id)
+              showInfoToast('Pipeline triggered', 'A new run is starting')
+            } catch (e) {
+              showErrorToast('Trigger failed', e instanceof ApiClientError ? e.message : 'Network error')
+            }
+          }}
+          className="glass-btn-primary"
+        >
+          Trigger Run
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Runs */}
+        <div className="glass-card p-6 lg:col-span-1">
+          <h3 className="text-lg font-semibold text-white mb-4">Runs</h3>
+          {runs.length === 0 ? (
+            <p className="text-sm text-gray-400">No runs yet. Trigger one to see history.</p>
+          ) : (
+            <div className="space-y-2">
+              {runs.map((run) => (
+                <button
+                  key={run.id}
+                  onClick={() => setSelectedRun(run.id)}
+                  className={`w-full text-left p-3 rounded-xl transition-colors ${
+                    selectedRun === run.id ? 'bg-glass-light ring-1 ring-primary-500' : 'hover:bg-glass-light'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white">#{run.id.slice(0, 8)}</span>
+                    <span className="status-badge">{run.status}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {run.startedAt ? new Date(run.startedAt).toLocaleString() : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Logs */}
+        <div className="glass-card p-6 lg:col-span-2">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Logs {selectedRun ? `· Run #${runs.find((r) => r.id === selectedRun)?.id.slice(0, 8) ?? ''}` : ''}
+          </h3>
+          {!selectedRun ? (
+            <p className="text-sm text-gray-400">Select a run to view its logs.</p>
+          ) : (
+            <pre className="bg-black/40 rounded-xl p-4 text-xs text-gray-300 font-mono overflow-auto max-h-[60vh] whitespace-pre-wrap">
+              {logs || 'No log output.'}
+            </pre>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
