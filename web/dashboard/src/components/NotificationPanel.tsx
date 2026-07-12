@@ -204,7 +204,9 @@ export default function NotificationPanel() {
 
   const filteredAlerts = filter === 'all'
     ? alerts
-    : alerts.filter(a => a.severity === filter)
+    : filter === 'info'
+      ? alerts.filter(a => a.severity === 'low' || a.severity === 'info')
+      : alerts.filter(a => a.severity === filter)
 
   const handleAcknowledge = (id: string) => {
     acknowledgeAlert(id, 'current-user')

@@ -86,6 +86,23 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const { subscribe, send, isConnected } = useWebSocketContext()
+  const removePipeline = usePipelinesStore((s) => s.removePipeline)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    setMenuOpen(false)
+    if (!window.confirm(`Delete pipeline "${pipeline.name}"?`)) return
+    setDeleting(true)
+    try {
+      await pipelinesApi.delete(pipeline.id)
+      removePipeline(pipeline.id)
+      showSuccessToast('Pipeline deleted', pipeline.name)
+    } catch (e) {
+      showErrorToast('Delete failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Subscribe to pipeline-specific updates
   useEffect(() => {
@@ -179,7 +196,11 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                     Disable
                   </button>
                   <hr className="border-glass-border my-1" />
-                  <button className="dropdown-item flex items-center gap-2 w-full text-status-error">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="dropdown-item flex items-center gap-2 w-full text-status-error disabled:opacity-50"
+                  >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>

@@ -34,6 +34,23 @@ function ClusterCard({ cluster }: { cluster: Cluster }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { subscribe, isConnected } = useWebSocketContext()
   const [metrics, setMetrics] = useState<ClusterMetrics | null>(null)
+  const removeCluster = useClustersStore((s) => s.removeCluster)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    setMenuOpen(false)
+    if (!window.confirm(`Delete cluster "${cluster.name}"? This disconnects it.`)) return
+    setDeleting(true)
+    try {
+      await clustersApi.delete(cluster.id)
+      removeCluster(cluster.id)
+      showSuccessToast('Cluster deleted', cluster.name)
+    } catch (e) {
+      showErrorToast('Delete failed', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Subscribe to cluster-specific metrics
   useEffect(() => {
@@ -116,7 +133,11 @@ function ClusterCard({ cluster }: { cluster: Cluster }) {
                     Open in browser
                   </button>
                   <hr className="border-glass-border my-1" />
-                  <button className="dropdown-item flex items-center gap-2 w-full text-status-error">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="dropdown-item flex items-center gap-2 w-full text-status-error disabled:opacity-50"
+                  >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>
@@ -305,13 +326,22 @@ function ClusterCreate() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setKubeconfig(event.target?.result as string)
-      }
-      reader.readAsText(file)
+    if (!file) return
+    // Bound the read: a huge upload could otherwise hang the tab, and a failed
+    // read was previously silent (no onerror).
+    if (file.size > 256 * 1024) {
+      showErrorToast('Kubeconfig too large', 'File must be under 256 KB')
+      e.target.value = ''
+      return
     }
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setKubeconfig(event.target?.result as string)
+    }
+    reader.onerror = () => {
+      showErrorToast('File read failed', 'Could not read the selected kubeconfig')
+    }
+    reader.readAsText(file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
