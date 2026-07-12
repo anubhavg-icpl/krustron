@@ -18,6 +18,8 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Config holds cost service configuration
@@ -63,14 +65,41 @@ func (s *Service) IngestUsage(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		info, err := client.GetClusterInfo(ctx)
-		if err != nil {
-			s.logger.Warn("cost ingest: cluster info failed", zap.String("cluster", name), zap.Error(err))
-			continue
+		// Sample real workload demand: sum container resource requests across
+		// the whole cluster (all namespaces). Reflects what workloads ask for,
+		// not bare node capacity, so cost tracks actual usage.
+		var reqCPUm, reqMemMi int64
+		if pods, perr := client.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{}); perr == nil {
+			for _, pod := range pods.Items {
+				if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodPending {
+					continue
+				}
+				for _, c := range pod.Spec.Containers {
+					if r, ok := c.Resources.Requests[corev1.ResourceCPU]; ok {
+						reqCPUm += r.MilliValue()
+					}
+					if r, ok := c.Resources.Requests[corev1.ResourceMemory]; ok {
+						reqMemMi += r.Value() / (1024 * 1024)
+					}
+				}
+			}
 		}
 
-		cpuCores := parseMillicores(info.CPUCapacity) / 1000.0
-		memGiB := parseGiB(info.MemoryCapacity)
+		cpuCores := float64(reqCPUm) / 1000.0
+		memGiB := float64(reqMemMi) / 1024.0
+
+		// Fall back to node capacity when no requests are declared (fresh
+		// cluster) so the cluster still shows a baseline.
+		if cpuCores == 0 || memGiB == 0 {
+			if info, infoErr := client.GetClusterInfo(ctx); infoErr == nil {
+				if cpuCores == 0 {
+					cpuCores = parseMillicores(info.CPUCapacity) / 1000.0
+				}
+				if memGiB == 0 {
+					memGiB = parseGiB(info.MemoryCapacity)
+				}
+			}
+		}
 
 		result, err := s.CalculateCost(ctx, ResourceUsage{
 			CPUCoreHours:  cpuCores,
