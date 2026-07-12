@@ -44,6 +44,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/database"
 	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
+	"github.com/anubhavg-icpl/krustron/pkg/websocket"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -208,6 +209,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 	securityService := security.NewService(db, kubeManager, &cfg.Security)
 	observabilityService := observability.NewService(&cfg.Observability)
 
+	// Real-time hub: broadcasts cluster/app/pipeline events to dashboard clients.
+	// Runs until ctx is cancelled at shutdown.
+	wsHub := websocket.NewHub(logger.Get(), websocket.DefaultConfig())
+	go wsHub.Run(ctx)
+	wsEmitter := websocket.NewEventEmitter(wsHub)
+	clusterService.SetEventEmitter(wsEmitter)
+	gitopsService.SetEventEmitter(wsEmitter)
+	pipelineService.SetEventEmitter(wsEmitter)
+
 	// Create router
 	r := router.New(&router.Config{
 		Mode:        cfg.Server.Mode,
@@ -223,6 +233,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		Auth:          authService,
 		Security:      securityService,
 		Observability: observabilityService,
+		Hub:           wsHub,
 	})
 
 	// Start server

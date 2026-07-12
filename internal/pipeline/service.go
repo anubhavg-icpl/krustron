@@ -14,6 +14,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
+	"github.com/anubhavg-icpl/krustron/pkg/websocket"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +24,12 @@ type Service struct {
 	kubeManager   *kube.ClientManager
 	cache         *cache.RedisCache
 	gitopsService *gitops.Service
+	emitter       *websocket.EventEmitter
 }
+
+// SetEventEmitter wires the real-time hub so pipeline mutations broadcast
+// status updates to subscribed dashboard clients. Optional: nil-safe.
+func (s *Service) SetEventEmitter(e *websocket.EventEmitter) { s.emitter = e }
 
 // NewService creates a new pipeline service
 func NewService(db *database.PostgresDB, kubeManager *kube.ClientManager, cache *cache.RedisCache, gitopsSvc *gitops.Service) *Service {
@@ -433,6 +439,15 @@ func (s *Service) Trigger(ctx context.Context, id string, req *TriggerRequest) (
 
 	// Update pipeline last run
 	s.db.ExecContext(ctx, "UPDATE pipelines SET last_run_at = $2, last_run_status = 'running' WHERE id = $1", id, now)
+
+	// Broadcast the new run to any dashboard clients subscribed to this pipeline.
+	if s.emitter != nil {
+		s.emitter.EmitPipelineStatus(id, map[string]interface{}{
+			"run_number": runNumber,
+			"status":     "running",
+			"trigger":    "manual",
+		})
+	}
 
 	logger.Info("Pipeline triggered",
 		zap.String("pipeline_id", id),

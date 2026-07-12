@@ -71,12 +71,15 @@ const (
 	MessageTypeAIStream   MessageType = "ai.stream"
 )
 
-// Message represents a WebSocket message
+// Message represents a WebSocket message.
+// The JSON tags mirror the dashboard's WebSocketMessage shape
+// (id/type/channel/payload/timestamp) so the same struct marshals/unmarshals
+// both directions without a translation layer.
 type Message struct {
 	ID        string                 `json:"id"`
 	Type      MessageType            `json:"type"`
 	Channel   string                 `json:"channel,omitempty"`
-	Data      interface{}            `json:"data,omitempty"`
+	Data      interface{}            `json:"payload,omitempty"`
 	Timestamp time.Time              `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -283,8 +286,10 @@ func (h *Hub) unsubscribeClient(sub *Subscription) {
 }
 
 func (h *Hub) broadcastMessage(message *Message) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	// Full write lock: this both mutates messageBuffer (append/shift) and sends
+	// to per-client channels. RLock here was a data race on the slice header.
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	// Add to buffer
 	if len(h.messageBuffer) >= h.bufferSize {
@@ -444,7 +449,13 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request, userID str
 // readPump reads messages from the WebSocket connection
 func (c *Client) readPump() {
 	defer func() {
-		c.Hub.unregister <- c
+		// Non-blocking unregister: if the Hub has shut down (Run returned,
+		// nobody draining the channel) a blocking send here would leak this
+		// goroutine forever. conn.Close() still runs regardless.
+		select {
+		case c.Hub.unregister <- c:
+		default:
+		}
 		c.Conn.Close()
 	}()
 
@@ -529,25 +540,36 @@ func (c *Client) handleMessage(msg *Message) {
 	switch msg.Type {
 	case MessageTypePing:
 		c.lastPing = time.Now()
-		c.Send <- &Message{
-			ID:        uuid.New().String(),
-			Type:      MessageTypePong,
-			Timestamp: time.Now(),
+		// Non-blocking: if the 256-slot send buffer is full, drop the pong
+		// rather than blocking readPump forever (which would leak the client).
+		select {
+		case c.Send <- &Message{ID: uuid.New().String(), Type: MessageTypePong, Timestamp: time.Now()}:
+		default:
+		}
+
+	case MessageType("auth"):
+		// The dashboard opens the socket then sends {type:'auth'} and waits for
+		// auth_success before treating the connection as authenticated. The JWT
+		// was already validated by WSAuth at upgrade; acknowledge it.
+		select {
+		case c.Send <- &Message{ID: uuid.New().String(), Type: MessageType("auth_success"), Channel: "system", Timestamp: time.Now()}:
+		default:
 		}
 
 	case "subscribe":
-		if channel, ok := msg.Data.(map[string]interface{})["channel"].(string); ok {
-			c.Hub.subscribe <- &Subscription{
-				Client:  c,
-				Channel: channel,
+		// Safe, nested type assertion: msg.Data may be nil or a non-map
+		// (e.g. a bare {"type":"subscribe"}), which previously panicked here
+		// and crashed the whole process via an unrecovered goroutine.
+		if data, ok := msg.Data.(map[string]interface{}); ok {
+			if channel, ok := data["channel"].(string); ok && channel != "" {
+				c.Hub.subscribe <- &Subscription{Client: c, Channel: channel}
 			}
 		}
 
 	case "unsubscribe":
-		if channel, ok := msg.Data.(map[string]interface{})["channel"].(string); ok {
-			c.Hub.unsubscribe <- &Subscription{
-				Client:  c,
-				Channel: channel,
+		if data, ok := msg.Data.(map[string]interface{}); ok {
+			if channel, ok := data["channel"].(string); ok && channel != "" {
+				c.Hub.unsubscribe <- &Subscription{Client: c, Channel: channel}
 			}
 		}
 
