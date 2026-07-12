@@ -11,6 +11,13 @@ import { User } from '@/types'
 export interface LoginRequest {
   email: string
   password: string
+  totp_code?: string
+}
+
+export interface TwoFactorSetup {
+  secret: string
+  otpauth_url: string
+  qr_code_url: string
 }
 
 export interface LoginResponse {
@@ -29,6 +36,7 @@ export interface BackendUser {
   provider: string
   role: string
   is_active: boolean
+  totp_enabled?: boolean
   last_login_at?: string
   created_at: string
   updated_at: string
@@ -60,6 +68,7 @@ export function mapBackendUser(user: BackendUser): User {
     avatar: user.avatar_url,
     roles: [user.role],
     teams: [],
+    totpEnabled: user.totp_enabled,
     lastLogin: user.last_login_at,
     createdAt: user.created_at,
   }
@@ -111,6 +120,19 @@ export const authApi = {
 
   revokeSession: async (id: string) => {
     return api.delete<{ message: string }>(`/auth/sessions/${id}`)
+  },
+
+  setup2FA: async () => {
+    const response = await api.post<TwoFactorSetup>('/auth/2fa/setup')
+    return response.data
+  },
+
+  verify2FA: async (code: string) => {
+    return api.post<{ message: string }>('/auth/2fa/verify', { code })
+  },
+
+  disable2FA: async (code: string) => {
+    return api.post<{ message: string }>('/auth/2fa/disable', { code })
   },
 }
 

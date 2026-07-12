@@ -28,7 +28,7 @@ import { clsx } from 'clsx'
 import { useAuthStore, useUIStore } from '@/store/useStore'
 import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
 import { authApi, ApiClientError } from '@/api'
-import type { SessionInfo } from '@/api'
+import type { SessionInfo, TwoFactorSetup } from '@/api'
 
 // Settings Navigation
 const settingsNav = [
@@ -244,6 +244,47 @@ function SecuritySettings() {
   const [submitting, setSubmitting] = useState(false)
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+  const [setup2FA, setSetup2FA] = useState<TwoFactorSetup | null>(null)
+  const [show2FAModal, setShow2FAModal] = useState(false)
+  const [showDisable2FA, setShowDisable2FA] = useState(false)
+  const [twoFactorCode, setTwoFactorCode] = useState('')
+
+  const begin2FASetup = async () => {
+    try {
+      const data = await authApi.setup2FA()
+      setSetup2FA(data)
+      setTwoFactorCode('')
+      setShow2FAModal(true)
+    } catch (e) {
+      showErrorToast('2FA setup failed', e instanceof ApiClientError ? e.message : 'Network error')
+    }
+  }
+
+  const confirm2FA = async () => {
+    try {
+      await authApi.verify2FA(twoFactorCode)
+      setTwoFactorEnabled(true)
+      setShow2FAModal(false)
+      setSetup2FA(null)
+      setTwoFactorCode('')
+      showSuccessToast('Two-factor enabled', 'Use your authenticator app at next login')
+    } catch (e) {
+      showErrorToast('Verification failed', e instanceof ApiClientError ? e.message : 'Network error')
+    }
+  }
+
+  const confirmDisable2FA = async () => {
+    try {
+      await authApi.disable2FA(twoFactorCode)
+      setTwoFactorEnabled(false)
+      setShowDisable2FA(false)
+      setTwoFactorCode('')
+      showSuccessToast('Two-factor disabled', '')
+    } catch (e) {
+      showErrorToast('Disable failed', e instanceof ApiClientError ? e.message : 'Network error')
+    }
+  }
 
   const loadSessions = useCallback(async () => {
     try {
@@ -269,6 +310,11 @@ function SecuritySettings() {
 
   useEffect(() => {
     loadSessions()
+    // Reflect the user's current 2FA state.
+    authApi
+      .getCurrentUser()
+      .then((u) => setTwoFactorEnabled(!!u.totpEnabled))
+      .catch(() => {})
   }, [loadSessions])
 
   const handleChangePassword = async () => {
@@ -367,12 +413,72 @@ function SecuritySettings() {
             <div>
               <h3 className="text-lg font-semibold text-white">Two-Factor Authentication</h3>
               <p className="text-sm text-gray-400 mt-1">
-                Add an extra layer of security to your account
+                {twoFactorEnabled
+                  ? 'Two-factor authentication is enabled.'
+                  : 'Add an extra layer of security to your account.'}
               </p>
             </div>
-            <button className="glass-btn-primary">Enable 2FA</button>
+            {twoFactorEnabled ? (
+              <button onClick={() => setShowDisable2FA(true)} className="glass-btn">Disable</button>
+            ) : (
+              <button onClick={begin2FASetup} className="glass-btn-primary">Enable 2FA</button>
+            )}
           </div>
         </div>
+
+        {/* 2FA setup modal */}
+        {show2FAModal && setup2FA && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="glass-card p-6 w-full max-w-md space-y-4">
+              <h3 className="text-lg font-semibold text-white">Enable Two-Factor Auth</h3>
+              <p className="text-sm text-gray-400">
+                Scan this in your authenticator app (or enter the secret manually), then enter the 6-digit code.
+              </p>
+              <div className="text-xs text-gray-400 break-all font-mono bg-glass-light p-3 rounded-xl">
+                {setup2FA.otpauth_url}
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Secret</label>
+                <p className="text-sm font-mono text-white">{setup2FA.secret}</p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Verification code</label>
+                <input
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  className="glass-input font-mono"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setShow2FAModal(false)} className="glass-btn">Cancel</button>
+                <button onClick={confirm2FA} disabled={twoFactorCode.length !== 6} className="glass-btn-primary disabled:opacity-50">
+                  Verify & Enable
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2FA disable modal */}
+        {showDisable2FA && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="glass-card p-6 w-full max-w-md space-y-4">
+              <h3 className="text-lg font-semibold text-white">Disable Two-Factor Auth</h3>
+              <p className="text-sm text-gray-400">Enter a current code to confirm.</p>
+              <input
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                className="glass-input font-mono"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setShowDisable2FA(false)} className="glass-btn">Cancel</button>
+                <button onClick={confirmDisable2FA} className="glass-btn-primary">Disable</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Active Sessions */}
         <div className="glass-card p-6">

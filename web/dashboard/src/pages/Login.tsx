@@ -14,6 +14,8 @@ export default function Login() {
   const { login } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [needs2FA, setNeeds2FA] = useState(false)
+  const [totpCode, setTotpCode] = useState('')
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -27,6 +29,7 @@ export default function Login() {
       const { access_token, refresh_token, expires_in, user } = await authApi.login({
         email: formData.username,
         password: formData.password,
+        totp_code: needs2FA ? totpCode : undefined,
       })
 
       login(access_token, refresh_token, user, expires_in)
@@ -35,7 +38,15 @@ export default function Login() {
       navigate('/')
     } catch (error) {
       const message = error instanceof ApiClientError ? error.message : 'Invalid credentials'
-      toast.error(message)
+      // Backend signals a required 2FA code with this message; switch to the
+      // 2FA step instead of showing a generic error.
+      if (/two-factor/i.test(message) && !needs2FA) {
+        setNeeds2FA(true)
+        setTotpCode('')
+        toast('Two-factor code required', { icon: '🔑' })
+      } else {
+        toast.error(message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -109,6 +120,22 @@ export default function Login() {
                 </button>
               </div>
             </div>
+
+            {needs2FA && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Two-Factor Code
+                </label>
+                <input
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  className="glass-input font-mono text-center tracking-widest"
+                  required
+                  autoFocus
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">

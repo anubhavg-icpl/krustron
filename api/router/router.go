@@ -115,6 +115,9 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				authRoutes.PUT("/password", handlers.ChangePassword(services.Auth))
 				authRoutes.GET("/sessions", handlers.ListSessions(services.Auth))
 				authRoutes.DELETE("/sessions/:id", handlers.RevokeSession(services.Auth))
+				authRoutes.POST("/2fa/setup", handlers.Setup2FA(services.Auth))
+				authRoutes.POST("/2fa/verify", handlers.Verify2FA(services.Auth))
+				authRoutes.POST("/2fa/disable", handlers.Disable2FA(services.Auth))
 			}
 
 			// User management (admin only)

@@ -493,6 +493,7 @@ export interface User {
   avatar?: string
   roles: string[]
   teams: string[]
+  totpEnabled?: boolean
   lastLogin?: string
   createdAt: string
 }
