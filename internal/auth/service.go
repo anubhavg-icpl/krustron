@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/anubhavg-icpl/krustron/pkg/cache"
@@ -33,7 +35,17 @@ type Service struct {
 }
 
 // NewService creates a new auth service
-func NewService(db *database.PostgresDB, cache *cache.RedisCache, cfg *config.AuthConfig) *Service {
+func NewService(db *database.PostgresDB, cache *cache.RedisCache, cfg *config.AuthConfig) (*Service, error) {
+	// Fail fast: a missing/short JWT secret lets an attacker forge any token
+	// (HMAC validates even with a zero-length key, and short secrets are
+	// brute-forceable). Refuse to boot instead.
+	if len(strings.TrimSpace(cfg.JWTSecret)) < 32 {
+		return nil, errors.Internal("auth.jwt_secret must be set to >=32 bytes (env KRUSTRON_AUTH_JWT_SECRET)")
+	}
+	if cfg.BCryptCost < bcrypt.MinCost || cfg.BCryptCost > bcrypt.MaxCost {
+		return nil, errors.Internal("auth.bcrypt_cost out of valid range")
+	}
+
 	svc := &Service{
 		db:     db,
 		cache:  cache,
@@ -58,7 +70,7 @@ func NewService(db *database.PostgresDB, cache *cache.RedisCache, cfg *config.Au
 		}
 	}
 
-	return svc
+	return svc, nil
 }
 
 // User represents a user
@@ -83,6 +95,7 @@ type Claims struct {
 	Name        string   `json:"name"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
+	TokenType   string   `json:"token_type,omitempty"` // "access" or "refresh"
 }
 
 // LoginRequest contains login credentials
@@ -184,14 +197,23 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*LoginRes
 
 // RefreshToken refreshes an access token
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*LoginResponse, error) {
-	// Validate refresh token
+	// Validate refresh token. Verify the signing method (defense against
+	// algorithm-confusion) and require an actual refresh token — a stolen
+	// access token (TokenType "access") must not be replayable here.
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(refreshToken, claims, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return []byte(s.config.JWTSecret), nil
 	})
 
 	if err != nil || !token.Valid {
 		return nil, errors.Unauthorized("invalid refresh token")
+	}
+
+	if claims.TokenType == "access" {
+		return nil, errors.Unauthorized("access token cannot be used for refresh")
 	}
 
 	// Get user
@@ -223,6 +245,11 @@ func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 
 	if !token.Valid {
 		return nil, errors.Unauthorized("invalid token")
+	}
+
+	// A refresh token must not be accepted as a bearer access token.
+	if claims.TokenType == "refresh" {
+		return nil, errors.Unauthorized("refresh token cannot be used for access")
 	}
 
 	return claims, nil
@@ -263,13 +290,21 @@ func (s *Service) HandleOIDCCallback(ctx context.Context, code string) (*LoginRe
 	}
 
 	var claims struct {
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
-		Sub     string `json:"sub"`
+		Email         string `json:"email"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
+		Sub           string `json:"sub"`
+		EmailVerified bool   `json:"email_verified"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return nil, errors.AuthWrap(err, "failed to parse claims")
+	}
+
+	// Trust the email only if the IdP verified it; otherwise an attacker who
+	// controls a permissive IdP can assert a victim's email and take over their
+	// account.
+	if !claims.EmailVerified {
+		return nil, errors.Auth("IdP did not verify the email address")
 	}
 
 	// Find or create user
@@ -278,20 +313,27 @@ func (s *Service) HandleOIDCCallback(ctx context.Context, code string) (*LoginRe
 		return nil, err
 	}
 
+	if !user.IsActive {
+		return nil, errors.Unauthorized("account is disabled")
+	}
+
 	return s.generateTokens(ctx, user)
 }
 
 func (s *Service) findOrCreateOIDCUser(ctx context.Context, claims *struct {
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Picture string `json:"picture"`
-	Sub     string `json:"sub"`
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
+	Sub           string `json:"sub"`
+	EmailVerified bool   `json:"email_verified"`
 }) (*User, error) {
 	var user User
 
+	// Scope to provider='oidc' so an OIDC login can never match (and hijack) a
+	// local or other-provider account that happens to share an email.
 	query := `
 		SELECT id, email, name, avatar_url, provider, role, is_active, created_at, updated_at
-		FROM users WHERE email = $1
+		FROM users WHERE email = $1 AND provider = 'oidc'
 	`
 
 	err := s.db.QueryRowContext(ctx, query, claims.Email).Scan(
@@ -344,6 +386,7 @@ func (s *Service) generateTokens(ctx context.Context, user *User) (*LoginRespons
 		Name:        user.Name,
 		Role:        user.Role,
 		Permissions: permissions,
+		TokenType:   "access",
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
@@ -361,7 +404,8 @@ func (s *Service) generateTokens(ctx context.Context, user *User) (*LoginRespons
 			Issuer:    "krustron",
 			Subject:   user.ID,
 		},
-		UserID: user.ID,
+		UserID:    user.ID,
+		TokenType: "refresh",
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
@@ -416,7 +460,11 @@ func (s *Service) getUserPermissions(ctx context.Context, userID, role string) [
 
 func generateState() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	// If the CSPRNG fails, b stays all-zero — a fixed, predictable state that
+	// defeats OAuth CSRF protection. Abort rather than emit a guessable value.
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand failed: %v", err))
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 
@@ -926,16 +974,38 @@ func (s *Service) ExportAuditLogs(ctx context.Context, format string) ([]byte, s
 		data, _ := json.Marshal(logs)
 		return data, "application/json", nil
 	case "csv":
-		// Simple CSV export
-		csv := "id,user_email,action,resource_type,resource_id,created_at\n"
+		// RFC4180 CSV via encoding/csv: quotes/escapes fields properly so
+		// user-controlled values (email, action, resource_name) can't break
+		// columns or inject spreadsheet formulas (= / + / - / @).
+		var buf strings.Builder
+		w := csv.NewWriter(&buf)
+		_ = w.Write([]string{"id", "user_email", "action", "resource_type", "resource_id", "created_at"})
 		for _, log := range logs {
-			csv += fmt.Sprintf("%s,%s,%s,%s,%s,%s\n",
-				log.ID, log.UserEmail, log.Action, log.ResourceType, log.ResourceID, log.CreatedAt.Format(time.RFC3339))
+			_ = w.Write([]string{
+				sanitizeCSVCell(log.ID), sanitizeCSVCell(log.UserEmail),
+				sanitizeCSVCell(log.Action), sanitizeCSVCell(log.ResourceType),
+				sanitizeCSVCell(log.ResourceID), log.CreatedAt.Format(time.RFC3339),
+			})
 		}
-		return []byte(csv), "text/csv", nil
+		w.Flush()
+		return []byte(buf.String()), "text/csv", nil
 	default:
 		return nil, "", errors.BadRequest("unsupported format")
 	}
+}
+
+// sanitizeCSVCell neutralizes CSV/spreadsheet formula injection: spreadsheet
+// apps evaluate a quoted cell that starts with = + - @ as a formula, so prefix
+// those (and tab/CR) with a single quote to keep the value literal.
+func sanitizeCSVCell(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
 }
 
 // GetSettings returns system settings

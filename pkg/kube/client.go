@@ -77,7 +77,19 @@ func (m *ClientManager) GetLocalClient() (*ClusterClient, error) {
 	restConfig.QPS = m.config.QPS
 	restConfig.Burst = m.config.Burst
 
-	return m.createClient("local", restConfig)
+	client, err := m.createClient("local", restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist under "local" so later GetClient("local") (used by cluster/helm
+	// services for in-cluster operations) actually resolves. Previously the
+	// client was built, logged once, then thrown away.
+	m.mu.Lock()
+	m.clients["local"] = client
+	m.mu.Unlock()
+
+	return client, nil
 }
 
 // AddCluster adds a cluster by kubeconfig content

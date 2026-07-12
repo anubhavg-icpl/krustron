@@ -257,6 +257,11 @@ const (
 
 // BuildKey builds a cache key with prefix
 func BuildKey(prefix string, parts ...string) string {
+	// Avoid the index-out-of-range when there are no parts (prefix-only) and
+	// the trailing-char strip that previously ate the prefix's last character.
+	if len(parts) == 0 {
+		return prefix
+	}
 	key := prefix
 	for _, part := range parts {
 		key += part + ":"

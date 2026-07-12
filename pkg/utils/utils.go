@@ -581,12 +581,15 @@ func ValidateEmail(email string) bool {
 	return matched
 }
 
-// ValidateKubernetesName validates a Kubernetes resource name
+// ValidateKubernetesName validates a Kubernetes resource (DNS subdomain) name.
+// Per RFC 1123 each dot-separated label is lowercase alphanumerics with single
+// (non-consecutive) dashes, not leading/trailing. The looser regex that was
+// here accepted "my--app" (consecutive dashes); this one forbids them.
 func ValidateKubernetesName(name string) bool {
 	if len(name) == 0 || len(name) > 253 {
 		return false
 	}
-	pattern := `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	pattern := `^[a-z0-9]([a-z0-9]|-[a-z0-9])*(\.[a-z0-9]([a-z0-9]|-[a-z0-9])*)*$`
 	matched, _ := regexp.MatchString(pattern, name)
 	return matched
 }

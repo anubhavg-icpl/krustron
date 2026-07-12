@@ -96,12 +96,20 @@ async function getValidToken(): Promise<string | null> {
   }
 
   // Token needs refresh - use mutex pattern
+  return refreshWithMutex()
+}
+
+// refreshWithMutex dedupes concurrent refresh attempts onto a single in-flight
+// refresh. Both the pre-request expiry check and the 401 response path route
+// through this; previously the 401 path called refreshToken() directly,
+// spawning N concurrent refreshes under N concurrent 401s and racing the
+// refresh-token rotation into a forced logout.
+function refreshWithMutex(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = refreshToken().finally(() => {
       refreshPromise = null
     })
   }
-
   return refreshPromise
 }
 
@@ -176,7 +184,7 @@ async function responseInterceptor<T>(
 ): Promise<T> {
   // Handle 401 Unauthorized
   if (response.status === 401 && !config.skipAuth) {
-    const newToken = await refreshToken()
+    const newToken = await refreshWithMutex()
     if (newToken) {
       // Retry request with new token
       config.headers = {
@@ -307,6 +315,11 @@ async function request<T>(
 
       // Don't retry on auth errors or client errors
       if (error instanceof ApiClientError) {
+        // Aborted requests must propagate immediately — never retry them or
+        // count them as a circuit-breaker failure.
+        if (error.code === 'ABORTED' || error.status === 0) {
+          throw error
+        }
         if (error.status >= 400 && error.status < 500) {
           throw error
         }

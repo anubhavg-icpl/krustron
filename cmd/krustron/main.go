@@ -26,6 +26,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -200,7 +201,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 	helmService := helm.NewService(db, kubeManager, redisCache)
 	gitopsService := gitops.NewService(db, kubeManager, &cfg.GitOps)
 	pipelineService := pipeline.NewService(db, kubeManager, redisCache, gitopsService)
-	authService := auth.NewService(db, redisCache, &cfg.Auth)
+	authService, err := auth.NewService(db, redisCache, &cfg.Auth)
+	if err != nil {
+		return fmt.Errorf("failed to create auth service: %w", err)
+	}
 	securityService := security.NewService(db, kubeManager, &cfg.Security)
 	observabilityService := observability.NewService(&cfg.Observability)
 
@@ -228,10 +232,19 @@ func runServer(cmd *cobra.Command, args []string) error {
 		zap.String("mode", cfg.Server.Mode),
 	)
 
-	// Start HTTP server in goroutine
+	// Use an explicit http.Server so we can drain in-flight requests on shutdown.
+	// r.Run() owns its own server and ignores our context, so the old code
+	// dropped connections hard on SIGTERM and raced db.Close() against handlers.
+	httpServer := &http.Server{
+		Addr:         serverAddr,
+		Handler:      r,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
 	errChan := make(chan error, 1)
 	go func() {
-		if err := r.Run(serverAddr); err != nil {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()
@@ -248,8 +261,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Graceful shutdown
+	// Graceful shutdown: stop accepting new requests, let in-flight finish,
+	// then cancel the app context so services/DB close cleanly afterwards.
 	logger.Info("Shutting down server...")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	defer shutdownCancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Forced shutdown after timeout", zap.Error(err))
+	}
 	cancel()
 
 	logger.Info("Server stopped")

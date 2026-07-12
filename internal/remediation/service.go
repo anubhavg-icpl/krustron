@@ -467,6 +467,13 @@ func (s *Service) ProcessEvent(ctx context.Context, event *RemediationEvent) err
 			continue
 		}
 
+		// A rule with no actions has nothing to execute; skip instead of panicking
+		// on rule.Actions[0] below.
+		if len(rule.Actions) == 0 {
+			s.logger.Warn("Rule has no actions, skipping", zap.String("rule", rule.Name))
+			continue
+		}
+
 		// Create remediation action
 		action := &RemediationAction{
 			ID:           uuid.New().String(),

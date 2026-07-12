@@ -32,16 +32,35 @@ type WebSocketMessage struct {
 // DashboardWS handles the main WebSocket connection for the dashboard
 func DashboardWS() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Identity is already enforced by middleware.WSAuth at upgrade time;
+		// surface it for logging/audit if needed later.
+		userID, _ := c.Get("user_id")
+		_ = userID
+
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
 			return
 		}
 		defer conn.Close()
 
+		// gorilla/websocket allows one concurrent reader and one concurrent
+		// writer; the ping goroutine and the read loop both write, so all
+		// writes are serialized through writeMu.
+		var writeMu sync.Mutex
+		writeJSON := func(v interface{}) bool {
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			return conn.WriteJSON(v) == nil
+		}
+
 		// Set up ping/pong for keepalive
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		// Cap inbound frame size; without this a single client can exhaust
+		// server memory with an unbounded message.
+		conn.SetReadLimit(512 * 1024)
 		conn.SetPongHandler(func(string) error {
-			conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 			return nil
 		})
 
@@ -58,7 +77,10 @@ func DashboardWS() gin.HandlerFunc {
 			for {
 				select {
 				case <-ticker.C:
-					if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
+					writeMu.Lock()
+					err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
+					writeMu.Unlock()
+					if err != nil {
 						return
 					}
 				case <-done:
@@ -79,31 +101,21 @@ func DashboardWS() gin.HandlerFunc {
 				continue
 			}
 
-			// Handle ping
-			if msg.Type == "ping" {
-				response := WebSocketMessage{
-					ID:        msg.ID,
-					Type:      "pong",
-					Channel:   "system",
-					Payload:   nil,
-					Timestamp: time.Now().UTC().Format(time.RFC3339),
-				}
-				responseBytes, _ := json.Marshal(response)
-				conn.WriteMessage(websocket.TextMessage, responseBytes)
-				continue
-			}
+			now := time.Now().UTC().Format(time.RFC3339)
 
-			// Handle subscribe/unsubscribe
-			if msg.Type == "subscribe" || msg.Type == "unsubscribe" {
-				response := WebSocketMessage{
-					ID:        msg.ID,
-					Type:      "ack",
-					Channel:   msg.Channel,
-					Payload:   map[string]string{"status": "ok"},
-					Timestamp: time.Now().UTC().Format(time.RFC3339),
-				}
-				responseBytes, _ := json.Marshal(response)
-				conn.WriteMessage(websocket.TextMessage, responseBytes)
+			switch msg.Type {
+			case "auth":
+				// Frontend sends an auth handshake and waits for auth_success
+				// before treating the socket as authenticated. The token was
+				// already validated by WSAuth at upgrade; acknowledge it.
+				writeJSON(WebSocketMessage{ID: msg.ID, Type: "auth_success", Channel: "system", Timestamp: now})
+
+			case "ping":
+				writeJSON(WebSocketMessage{ID: msg.ID, Type: "pong", Channel: "system", Timestamp: now})
+
+			case "subscribe", "unsubscribe":
+				writeJSON(WebSocketMessage{ID: msg.ID, Type: "ack", Channel: msg.Channel,
+					Payload: map[string]string{"status": "ok"}, Timestamp: now})
 			}
 		}
 
