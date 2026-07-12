@@ -12,6 +12,9 @@ import (
 	"github.com/anubhavg-icpl/krustron/pkg/logger"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // PostgresDB wraps the sql.DB connection
@@ -56,6 +59,28 @@ func NewPostgresDB(cfg *config.DatabaseConfig) (*PostgresDB, error) {
 func (db *PostgresDB) Close() error {
 	logger.Info("Closing PostgreSQL connection")
 	return db.DB.Close()
+}
+
+// NewGormDB opens a GORM connection over the same PostgreSQL config. Some
+// services (cost, casbin adapter) are written against GORM while the rest of
+// the app uses database/sql directly; both point at the same database.
+func NewGormDB(cfg *config.DatabaseConfig) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
+		Logger: gormlogger.Discard,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open gorm connection: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+
+	return db, nil
 }
 
 // Health checks the database health

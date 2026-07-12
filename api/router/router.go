@@ -8,6 +8,7 @@ import (
 
 	"github.com/anubhavg-icpl/krustron/api/handlers"
 	"github.com/anubhavg-icpl/krustron/api/middleware"
+	"github.com/anubhavg-icpl/krustron/internal/cost"
 	"github.com/anubhavg-icpl/krustron/internal/auth"
 	"github.com/anubhavg-icpl/krustron/internal/cluster"
 	"github.com/anubhavg-icpl/krustron/internal/gitops"
@@ -38,6 +39,7 @@ type Services struct {
 	Security      *security.Service
 	Observability *observability.Service
 	Hub           *websocket.Hub
+	Cost          *cost.Service
 }
 
 // New creates a new Gin router
@@ -222,6 +224,18 @@ func RegisterRoutes(r *gin.Engine, services *Services) {
 				observabilityRoutes.GET("/alerts", handlers.ListAlerts(services.Observability))
 				observabilityRoutes.GET("/dashboards", handlers.ListDashboards(services.Observability))
 				observabilityRoutes.GET("/dora", handlers.GetDORAMetrics(services.Observability))
+			}
+
+			// Cost routes (registered only if the GORM-backed cost service came up)
+			if services.Cost != nil {
+				costRoutes := protected.Group("/cost")
+				{
+					costRoutes.GET("/summary", handlers.GetCostSummary(services.Cost))
+					costRoutes.GET("/allocations", handlers.ListCostAllocations(services.Cost))
+					costRoutes.GET("/budgets", handlers.ListBudgets(services.Cost))
+					costRoutes.POST("/budgets", middleware.RequireRole("admin"), handlers.CreateBudget(services.Cost))
+					costRoutes.POST("/reports", handlers.GenerateCostReport(services.Cost))
+				}
 			}
 
 			// RBAC routes

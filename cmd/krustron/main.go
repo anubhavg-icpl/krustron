@@ -32,6 +32,7 @@ import (
 	"syscall"
 
 	"github.com/anubhavg-icpl/krustron/api/router"
+	"github.com/anubhavg-icpl/krustron/internal/cost"
 	"github.com/anubhavg-icpl/krustron/internal/cluster"
 	"github.com/anubhavg-icpl/krustron/internal/gitops"
 	"github.com/anubhavg-icpl/krustron/internal/helm"
@@ -209,6 +210,18 @@ func runServer(cmd *cobra.Command, args []string) error {
 	securityService := security.NewService(db, kubeManager, &cfg.Security)
 	observabilityService := observability.NewService(&cfg.Observability)
 
+	// Cost service is GORM-backed (the rest of the app uses database/sql).
+	// Open a second handle on the same DB; if it fails, cost endpoints stay nil
+	// and the router skips registration.
+	var costService *cost.Service
+	if gormDB, gerr := database.NewGormDB(&cfg.Database); gerr != nil {
+		logger.Warn("Failed to open GORM connection, cost service disabled", zap.Error(gerr))
+	} else if svc, cerr := cost.NewService(gormDB, logger.Get(), &cost.Config{}); cerr != nil {
+		logger.Warn("Failed to create cost service", zap.Error(cerr))
+	} else {
+		costService = svc
+	}
+
 	// Real-time hub: broadcasts cluster/app/pipeline events to dashboard clients.
 	// Runs until ctx is cancelled at shutdown.
 	wsHub := websocket.NewHub(logger.Get(), websocket.DefaultConfig())
@@ -234,6 +247,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		Security:      securityService,
 		Observability: observabilityService,
 		Hub:           wsHub,
+		Cost:          costService,
 	})
 
 	// Start server

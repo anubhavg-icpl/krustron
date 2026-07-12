@@ -29,3 +29,6 @@ export type { HelmRepository, HelmChart, HelmRelease } from './helm.api'
 
 export { rbacApi, auditApi, settingsApi } from './rbac.api'
 export type { Role, AuditLog, AppSettings, NotificationSettings } from './rbac.api'
+
+export { default as costApi } from './cost.api'
+export type { CostSummary, CostAllocation, Budget } from './cost.api'
