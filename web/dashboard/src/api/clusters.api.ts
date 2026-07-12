@@ -53,7 +53,18 @@ export const clustersApi = {
   },
 
   create: async (data: CreateClusterRequest) => {
-    const response = await api.post<Cluster>('/clusters', data)
+    // Map the dashboard form fields onto the backend CreateRequest shape.
+    // The backend binds `api_server` (not `server`); sending `server` silently
+    // stored an empty API server and the cluster never connected.
+    const response = await api.post<Cluster>('/clusters', {
+      name: data.name,
+      display_name: data.name,
+      description: data.description,
+      api_server: data.server,
+      kubeconfig: data.kubeconfig,
+      auth_type: data.bearer_token ? 'bearer' : 'kubeconfig',
+      labels: data.labels,
+    })
     return response.data
   },
 

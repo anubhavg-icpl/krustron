@@ -64,7 +64,25 @@ export const applicationsApi = {
   },
 
   create: async (data: CreateApplicationRequest) => {
-    const response = await api.post<Application>('/applications', data)
+    // The backend CreateRequest is FLAT (ArgoCD-style) and requires
+    // `source_type`. The dashboard sent a nested `source`/`sync_policy` object
+    // and omitted source_type, so every create failed validation (400) and the
+    // repo fields were dropped. Map to the backend shape here so the page-side
+    // interface stays ergonomic.
+    const automated = data.sync_policy?.automated
+    const response = await api.post<Application>('/applications', {
+      name: data.name,
+      display_name: data.name,
+      cluster_id: data.cluster_id,
+      namespace: data.namespace,
+      source_type: 'git',
+      repo_url: data.source.repo_url,
+      repo_path: data.source.path,
+      repo_branch: data.source.target_revision,
+      auto_sync: !!automated,
+      prune: automated?.prune ?? false,
+      self_heal: automated?.self_heal ?? false,
+    })
     return response.data
   },
 

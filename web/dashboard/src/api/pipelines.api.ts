@@ -67,7 +67,11 @@ export const pipelinesApi = {
   },
 
   trigger: async (id: string, parameters?: Record<string, string>) => {
-    const response = await api.post<PipelineRun>(`/pipelines/${id}/trigger`, { parameters })
+    // Backend TriggerRequest binds `variables`, not `parameters` — the old body
+    // was silently dropped and runs lost their trigger variables.
+    const response = await api.post<PipelineRun>(`/pipelines/${id}/trigger`, {
+      variables: parameters ?? {},
+    })
     return response.data
   },
 
