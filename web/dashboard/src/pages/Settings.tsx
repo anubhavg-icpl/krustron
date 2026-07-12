@@ -27,6 +27,7 @@ import {
 import { clsx } from 'clsx'
 import { useAuthStore, useUIStore } from '@/store/useStore'
 import { showSuccessToast, showErrorToast } from '@/hooks/useNotificationToasts'
+import { authApi, ApiClientError } from '@/api'
 
 // Settings Navigation
 const settingsNav = [
@@ -236,6 +237,37 @@ function AppearanceSettings() {
 // Security Settings
 function SecuritySettings() {
   const [showPassword, setShowPassword] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword) {
+      showErrorToast('Missing fields', 'Current and new password are required')
+      return
+    }
+    if (newPassword.length < 8) {
+      showErrorToast('Password too short', 'New password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      showErrorToast('Passwords do not match', 'New and confirm password differ')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await authApi.changePassword({ current_password: currentPassword, new_password: newPassword })
+      showSuccessToast('Password updated', 'Your password has been changed')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (e) {
+      showErrorToast('Failed to change password', e instanceof ApiClientError ? e.message : 'Network error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <SettingsLayout>
@@ -256,6 +288,8 @@ function SecuritySettings() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                   className="glass-input pr-10"
                 />
                 <button
@@ -274,15 +308,27 @@ function SecuritySettings() {
               <label className="block text-sm font-medium text-gray-400 mb-2">
                 New Password
               </label>
-              <input type="password" className="glass-input" />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="glass-input"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">
                 Confirm New Password
               </label>
-              <input type="password" className="glass-input" />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="glass-input"
+              />
             </div>
-            <button className="glass-btn-primary">Update Password</button>
+            <button onClick={handleChangePassword} disabled={submitting} className="glass-btn-primary disabled:opacity-50">
+              {submitting ? 'Updating…' : 'Update Password'}
+            </button>
           </div>
         </div>
 

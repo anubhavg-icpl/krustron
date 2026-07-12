@@ -1,7 +1,7 @@
 // Krustron Dashboard - Layout Component
 // Author: Anubhav Gain <anubhavg@infopercept.com>
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -47,6 +47,26 @@ export default function Layout() {
   const { isConnected, reconnectCount } = useWebSocketContext()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close the user menu on outside click / Escape so it can't stack open.
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUserMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [userMenuOpen])
 
   // Enable toast notifications for alerts
   useNotificationToasts()
@@ -262,7 +282,7 @@ export default function Layout() {
             </button>
 
             {/* User menu */}
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 p-2 rounded-xl hover:bg-glass-light transition-colors"
