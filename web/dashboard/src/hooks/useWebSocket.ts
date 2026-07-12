@@ -97,6 +97,9 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const subscriptionsRef = useRef<Map<string, Set<(message: WebSocketMessage) => void>>>(new Map())
   const reconnectCountRef = useRef(0)
+  // Tracks an intentional close so the onclose handler doesn't schedule a
+  // reconnect (which would leak a zombie socket on unmount / manual disconnect).
+  const intentionalCloseRef = useRef(false)
 
   // Generate unique message ID
   const generateId = useCallback(() => {
@@ -213,7 +216,12 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
     setState(prev => ({ ...prev, isConnecting: true, error: null, isAuthenticated: false }))
 
     try {
-      const socket = new WebSocket(url)
+      // /ws requires a JWT at upgrade time (WSAuth middleware). Browsers cannot
+      // set headers on WebSocket, so pass the token as a query param.
+      const { token } = useAuthStore.getState()
+      const authedUrl = token ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url
+      intentionalCloseRef.current = false
+      const socket = new WebSocket(authedUrl)
       socketRef.current = socket
 
       socket.onopen = () => {
@@ -254,6 +262,13 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
         setState(prev => ({ ...prev, isConnected: false, isConnecting: false, isAuthenticated: false }))
         onClose?.()
 
+        // Don't reconnect after an intentional disconnect (unmount / manual
+        // disconnect) — otherwise close() fires onclose which schedules a
+        // reconnect and leaks a zombie socket.
+        if (intentionalCloseRef.current) {
+          return
+        }
+
         // Attempt reconnection with exponential backoff
         if (reconnect && reconnectCountRef.current < reconnectAttempts) {
           const delay = calculateReconnectDelay(reconnectCountRef.current)
@@ -283,6 +298,7 @@ export function useWebSocket(options: WebSocketOptions = {}): UseWebSocketReturn
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {
     clearTimers()
+    intentionalCloseRef.current = true
     if (socketRef.current) {
       socketRef.current.close(1000, 'Client disconnect')
       socketRef.current = null
