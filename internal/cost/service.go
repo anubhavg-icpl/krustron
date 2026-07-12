@@ -9,11 +9,13 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/anubhavg-icpl/krustron/pkg/kube"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -42,6 +44,85 @@ type Service struct {
 	httpClient  *http.Client
 	cache       sync.Map
 	pricingData map[string]map[string]float64
+	kubeManager *kube.ClientManager
+}
+
+// SetKubeManager wires the cluster manager so IngestUsage can sample live
+// resource usage. Optional: nil-safe.
+func (s *Service) SetKubeManager(km *kube.ClientManager) { s.kubeManager = km }
+
+// IngestUsage samples each registered cluster's capacity, prices one hour via
+// CalculateCost, and writes a CostAllocation row. Intended to run on a ticker
+// (main.go) so the cost tables accumulate real data instead of staying empty.
+func (s *Service) IngestUsage(ctx context.Context) {
+	if s.kubeManager == nil || s.db == nil {
+		return
+	}
+	for _, name := range s.kubeManager.ListClusters() {
+		client, err := s.kubeManager.GetClient(name)
+		if err != nil {
+			continue
+		}
+		info, err := client.GetClusterInfo(ctx)
+		if err != nil {
+			s.logger.Warn("cost ingest: cluster info failed", zap.String("cluster", name), zap.Error(err))
+			continue
+		}
+
+		cpuCores := parseMillicores(info.CPUCapacity) / 1000.0
+		memGiB := parseGiB(info.MemoryCapacity)
+
+		result, err := s.CalculateCost(ctx, ResourceUsage{
+			CPUCoreHours:  cpuCores,
+			MemoryGBHours: memGiB,
+			Hours:         1.0,
+		})
+		if err != nil {
+			continue
+		}
+
+		now := time.Now().UTC()
+		alloc := &CostAllocation{
+			ID:            uuid.NewString(),
+			ClusterID:     name,
+			ClusterName:   name,
+			WorkloadType:  "cluster",
+			WorkloadName:  name,
+			CPUCoreHours:  cpuCores,
+			CPUCost:       result.CPUCost,
+			MemoryGBHours: memGiB,
+			MemoryCost:    result.MemoryCost,
+			StorageCost:   result.StorageCost,
+			NetworkCost:   result.NetworkCost,
+			TotalCost:     result.TotalCost,
+			Efficiency:    100,
+			PeriodStart:   now.Add(-time.Hour),
+			PeriodEnd:     now,
+			CreatedAt:     now,
+		}
+		if err := s.db.Create(alloc).Error; err != nil {
+			s.logger.Warn("cost ingest: save failed", zap.String("cluster", name), zap.Error(err))
+		}
+	}
+}
+
+// parseMillicores parses strings like "8000m" (millicores) or "8" (cores).
+func parseMillicores(s string) float64 {
+	s = strings.TrimSpace(s)
+	if strings.HasSuffix(s, "m") {
+		v, _ := strconv.ParseFloat(strings.TrimSuffix(s, "m"), 64)
+		return v
+	}
+	v, _ := strconv.ParseFloat(s, 64)
+	return v * 1000
+}
+
+// parseGiB parses strings like "32Gi" or "32" into GiB.
+func parseGiB(s string) float64 {
+	s = strings.TrimSpace(s)
+	s = strings.TrimSuffix(s, "Gi")
+	v, _ := strconv.ParseFloat(s, 64)
+	return v
 }
 
 // CostAllocation represents cost allocation for a resource
