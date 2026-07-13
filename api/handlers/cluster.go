@@ -3,12 +3,14 @@
 package handlers
 
 import (
+	"bufio"
 	"net/http"
 	"strconv"
 
 	"github.com/anubhavg-icpl/krustron/internal/cluster"
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 // ListClusters returns all clusters
@@ -256,18 +258,69 @@ func InstallAgent(svc *cluster.Service) gin.HandlerFunc {
 }
 
 // ClusterEventsWS streams cluster events via WebSocket
+// wsUpgrader upgrades the dedicated resource-streaming sockets. Origin checks
+// are permissive (same as the dashboard socket); auth is enforced by WSAuth on
+// the route group.
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
 func ClusterEventsWS(svc *cluster.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// WebSocket handling will be implemented
-		c.JSON(http.StatusNotImplemented, gin.H{"message": "WebSocket not yet implemented"})
+		clusterID := c.Param("id")
+		conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		w, err := svc.WatchEvents(c.Request.Context(), clusterID)
+		if err != nil {
+			_ = conn.WriteJSON(gin.H{"type": "error", "message": err.Error()})
+			return
+		}
+		defer w.Stop()
+
+		for evt := range w.ResultChan() {
+			if c.Request.Context().Err() != nil {
+				return
+			}
+			if err := conn.WriteJSON(gin.H{"type": "cluster.event", "data": evt.Object}); err != nil {
+				return
+			}
+		}
 	}
 }
 
-// PodLogsWS streams pod logs via WebSocket
+// PodLogsWS streams a pod's logs (follow) over WebSocket.
 func PodLogsWS(svc *cluster.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// WebSocket handling will be implemented
-		c.JSON(http.StatusNotImplemented, gin.H{"message": "WebSocket not yet implemented"})
+		clusterID := c.Param("cluster")
+		namespace := c.Param("namespace")
+		pod := c.Param("pod")
+
+		conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		stream, err := svc.StreamPodLogs(c.Request.Context(), clusterID, namespace, pod, "")
+		if err != nil {
+			_ = conn.WriteJSON(gin.H{"type": "error", "message": err.Error()})
+			return
+		}
+		defer stream.Close()
+
+		scanner := bufio.NewScanner(stream)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			if err := conn.WriteMessage(websocket.TextMessage, scanner.Bytes()); err != nil {
+				return
+			}
+		}
 	}
 }
 
