@@ -127,6 +127,7 @@ async function refreshToken(): Promise<string | null> {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ refresh_token: storedRefreshToken }),
     })
 
@@ -293,6 +294,9 @@ async function request<T>(
 
       const response = await fetch(intercepted.url, {
         ...intercepted.config,
+        // Send cookies so HttpOnly auth cookies flow when the backend is in
+        // cookie mode (auth.use_cookie). Harmless in the default Bearer mode.
+        credentials: 'include',
         signal: config.signal,
       })
 
