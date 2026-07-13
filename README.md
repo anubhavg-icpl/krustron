@@ -2,8 +2,8 @@
 
 <!-- Animated Banner -->
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/banner.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/banner.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner.webp" type="image/webp">
+  <source media="(prefers-color-scheme: light)" srcset="assets/banner.webp" type="image/webp">
   <img alt="Krustron - Kubernetes-Native Platform" src="assets/banner.svg" width="100%">
 </picture>
 
@@ -12,7 +12,7 @@
 
 <!-- Badges -->
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -88,10 +88,24 @@ Krustron is a comprehensive Kubernetes-native platform that unifies cluster mana
 </tr>
 </table>
 
+<div align="center">
+<table>
+<tr>
+<td width="33%" align="center"><img src="assets/feature-clusters.webp" alt="Multi-cluster topology" width="280"><br/><sub>Multi-cluster topology</sub></td>
+<td width="33%" align="center"><img src="assets/feature-pipelines.webp" alt="CI/CD pipelines" width="280"><br/><sub>CI/CD pipelines</sub></td>
+<td width="33%" align="center"><img src="assets/feature-observability.webp" alt="Observability" width="280"><br/><sub>Observability</sub></td>
+</tr>
+</table>
+</div>
+
 ### AI Operations *(Coming Soon)*
 > Natural language queries, auto-remediation, and AI-powered cost optimization
 
 ## Architecture
+
+<div align="center">
+  <img src="docs/assets/architecture.webp" alt="Krustron architecture" width="820">
+</div>
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -341,6 +355,8 @@ Built with [Gin](https://github.com/gin-gonic/gin), [client-go](https://github.c
 ---
 
 <div align="center">
+
+<img src="assets/logo.webp" alt="Krustron" width="96">
 
 **[Krustron](https://krustron.io)** — Kubernetes Platform for Modern DevOps
 
