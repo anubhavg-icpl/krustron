@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/anubhavg-icpl/krustron/pkg/cache"
@@ -19,6 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 // Service provides cluster management functionality
@@ -616,6 +618,44 @@ func (s *Service) GetPodLogs(ctx context.Context, clusterID, namespace, podName,
 	}
 
 	return logs, nil
+}
+
+// StreamPodLogs opens a follow-stream of pod logs. Caller closes the ReadCloser.
+func (s *Service) StreamPodLogs(ctx context.Context, clusterID, namespace, podName, container string) (io.ReadCloser, error) {
+	cluster, err := s.Get(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := s.kubeManager.GetClient(cluster.Name)
+	if err != nil {
+		return nil, errors.ClusterWrap(err, "failed to get cluster client")
+	}
+	opts := &corev1.PodLogOptions{Follow: true}
+	if container != "" {
+		opts.Container = container
+	}
+	stream, err := client.Clientset.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream(ctx)
+	if err != nil {
+		return nil, errors.KubernetesWrap(err, "failed to open log stream")
+	}
+	return stream, nil
+}
+
+// WatchEvents returns a live watch on cluster events across all namespaces.
+func (s *Service) WatchEvents(ctx context.Context, clusterID string) (watch.Interface, error) {
+	cluster, err := s.Get(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := s.kubeManager.GetClient(cluster.Name)
+	if err != nil {
+		return nil, errors.ClusterWrap(err, "failed to get cluster client")
+	}
+	w, err := client.Clientset.CoreV1().Events("").Watch(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.KubernetesWrap(err, "failed to watch events")
+	}
+	return w, nil
 }
 
 // GetServices returns services in a namespace

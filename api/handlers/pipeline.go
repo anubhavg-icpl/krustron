@@ -9,6 +9,7 @@ import (
 	"github.com/anubhavg-icpl/krustron/internal/pipeline"
 	"github.com/anubhavg-icpl/krustron/pkg/errors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 // ListPipelines returns all pipelines
@@ -225,10 +226,35 @@ func GetPipelineRunLogs(svc *pipeline.Service) gin.HandlerFunc {
 }
 
 // PipelineLogsWS streams pipeline logs via WebSocket
+var pipelineWSUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+// PipelineLogsWS sends the pipeline's latest run logs over WebSocket. The
+// backend stores logs per-run (not a live tail), so this is a one-shot send
+// of the most recent run's output; reconnect to refresh.
 func PipelineLogsWS(svc *pipeline.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// WebSocket handling will be implemented
-		c.JSON(http.StatusNotImplemented, gin.H{"message": "WebSocket not yet implemented"})
+		id := c.Param("id")
+		conn, err := pipelineWSUpgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		runs, _, err := svc.ListRuns(c.Request.Context(), id, 1, 1, "")
+		if err != nil || len(runs) == 0 {
+			_ = conn.WriteJSON(gin.H{"type": "error", "message": "no pipeline runs found"})
+			return
+		}
+		logs, err := svc.GetRunLogs(c.Request.Context(), id, runs[0].ID, "")
+		if err != nil {
+			_ = conn.WriteJSON(gin.H{"type": "error", "message": err.Error()})
+			return
+		}
+		_ = conn.WriteJSON(gin.H{"type": "pipeline.log", "run_id": runs[0].ID, "data": logs})
 	}
 }
 
